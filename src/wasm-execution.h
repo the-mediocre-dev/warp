@@ -15,3 +15,9 @@
  */
 
 #pragma once
+
+#include <stdbool.h>
+
+struct wrp_vm;
+
+bool wrp_step(struct wrp_vm *vm);

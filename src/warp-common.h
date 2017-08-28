@@ -18,15 +18,15 @@
 
 #include <stdint.h>
 
-struct warp_vm;
+struct wrp_vm;
 
-typedef void *(*warp_alloc_fn)(size_t size, size_t align);
+typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
 
-typedef void (*warp_free_fn)(void *ptr);
+typedef void (*wrp_free_fn)(void *ptr);
 
-typedef void (*warp_trap_fn)(struct warp_vm *vm, int err);
+typedef void (*wrp_trap_fn)(struct wrp_vm *vm, int err);
 
-typedef void (*warp_thunk_fn)(uint64_t *args,
+typedef void (*wrp_thunk_fn)(uint64_t *args,
     uint8_t arg_types,
     uint32_t num_args,
     uint64_t returns,

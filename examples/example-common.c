@@ -31,7 +31,7 @@ void example_free(void *ptr)
     free(ptr);
 }
 
-void example_trap(struct warp_vm *vm, int err)
+void example_trap(struct wrp_vm *vm, int err)
 {
     fprintf(stderr, "trap: %d", err);
 }

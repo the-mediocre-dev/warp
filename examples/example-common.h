@@ -19,14 +19,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct warp_vm;
+struct wrp_vm;
 struct byte_stream;
 
 void *example_alloc(size_t size, size_t align);
 
 void example_free(void *ptr);
 
-void example_trap(struct warp_vm *vm, int err);
+void example_trap(struct wrp_vm *vm, int err);
 
 bool load_buf(const char *path, uint8_t **buf, size_t *buf_sz);
 

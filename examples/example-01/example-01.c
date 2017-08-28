@@ -14,22 +14,25 @@
  *  limitations under the License.
  */
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <buf-io.h>
 #include <example-common.h>
 #include <warp.h>
+#include <wasm-execution.h>
 #include <wasm-load.h>
 #include <wasm-validation.h>
 #include <wasm.h>
 
 int main(int argc, char **argv)
 {
-    struct warp_vm *vm = wrp_open_vm(example_alloc, example_free, example_trap);
+    struct wrp_vm *vm = wrp_open_vm(example_alloc, example_free, example_trap);
 
     if (vm == NULL) {
-        fprintf(stderr, "opening vm from failed");
+        fprintf(stderr, "opening vm failed");
         abort();
     }
 
@@ -41,14 +44,14 @@ int main(int argc, char **argv)
         abort();
     }
 
-    struct wasm_meta meta = {};
+    struct wrp_wasm_meta meta = {};
 
     if (!wrp_validate_module(buf, buf_sz, &meta)) {
         fprintf(stderr, "validation of module 'square.wasm' failed");
         abort();
     }
 
-    struct wasm_module *mdle = wrp_load_module(buf, buf_sz, &meta, example_alloc);
+    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(buf, buf_sz, &meta, example_alloc);
 
     if (mdle == NULL) {
         fprintf(stderr, "loading module 'square.wasm' failed");
@@ -57,10 +60,22 @@ int main(int argc, char **argv)
 
     free_buf(buf);
 
-    //TODO run script
+    uint32_t func_idx = 0;
+    if (!wrp_get_func_idx(mdle, "square", &func_idx)) {
+        fprintf(stderr, "insert some error message");
+        abort();
+    }
 
-    wrp_unload_module(mdle, example_free);
+    wrp_attach_mdle(vm, mdle);
+
+    wrp_push_i32(vm, 3);
+
+    wrp_call(vm, func_idx);
+
+    int32_t result = 0;
+    wrp_pop_i32(vm, &result);
+
+    wrp_destroy_mdle(mdle, example_free);
     wrp_close_vm(vm);
-
     return 0;
 }

@@ -14,4 +14,22 @@
  *  limitations under the License.
  */
 
+#include <string.h>
+
 #include "wasm.h"
+
+bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
+    const char *func_name,
+    uint32_t *func_idx)
+{
+    for (uint32_t i = 0; i < mdle->num_exports; i++) {
+        char *name = &mdle->export_names[mdle->export_name_offsets[i]];
+
+        if (strcmp(name, func_name) == 0) {
+            *func_idx = mdle->export_func_idxs[i];
+            return true;
+        }
+    }
+
+    return false;
+}

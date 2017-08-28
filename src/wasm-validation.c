@@ -21,7 +21,7 @@
 static bool validate_preamble(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (buf_sz < 8) {
         meta->validation_result = INVALID_MODULE;
@@ -56,7 +56,7 @@ static bool validate_preamble(uint8_t *buf,
 static bool validate_type_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_types)) {
         meta->validation_result = INVALID_MODULE;
@@ -141,7 +141,7 @@ static bool validate_type_section(uint8_t *buf,
 static bool validate_import_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     return true;
 }
@@ -149,7 +149,7 @@ static bool validate_import_section(uint8_t *buf,
 static bool validate_func_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_funcs)) {
         meta->validation_result = INVALID_MODULE;
@@ -182,7 +182,7 @@ static bool validate_func_section(uint8_t *buf,
 static bool validate_table_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_tables)) {
         meta->validation_result = INVALID_MODULE;
@@ -222,7 +222,7 @@ static bool validate_table_section(uint8_t *buf,
 static bool validate_memory_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_memories)) {
         meta->validation_result = INVALID_MODULE;
@@ -251,7 +251,7 @@ static bool validate_memory_section(uint8_t *buf,
 static bool validate_global_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_globals)) {
         meta->validation_result = INVALID_MODULE;
@@ -296,7 +296,7 @@ static bool validate_global_section(uint8_t *buf,
 static bool validate_export_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_exports)) {
         meta->validation_result = INVALID_MODULE;
@@ -351,7 +351,7 @@ static bool validate_export_section(uint8_t *buf,
 static bool validate_start_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     meta->start_func_present = true;
     meta->start_func = *pos;
@@ -368,7 +368,7 @@ static bool validate_start_section(uint8_t *buf,
 static bool validate_element_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     return true;
 }
@@ -376,7 +376,7 @@ static bool validate_element_section(uint8_t *buf,
 static bool validate_code_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     if (!wrp_read_varui32(buf, buf_sz, pos, &meta->num_code_segments)) {
         meta->validation_result = INVALID_MODULE;
@@ -458,7 +458,7 @@ static bool validate_code_section(uint8_t *buf,
 static bool validate_data_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
-    struct wasm_meta *meta)
+    struct wrp_wasm_meta *meta)
 {
     return true;
 }
@@ -494,7 +494,7 @@ bool wrp_is_valid_value_type(uint8_t type)
     }
 }
 
-bool wrp_validate_module(uint8_t *buf, size_t buf_sz, struct wasm_meta *meta)
+bool wrp_validate_module(uint8_t *buf, size_t buf_sz, struct wrp_wasm_meta *meta)
 {
     meta->validation_result = INVALID_MODULE;
     size_t pos = 0;

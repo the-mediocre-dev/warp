@@ -21,12 +21,12 @@
 
 #include "warp-common.h"
 
-struct wasm_meta;
-struct wasm_module;
+struct wrp_wasm_meta;
+struct wrp_wasm_mdle;
 
-struct wasm_module *wrp_load_module(uint8_t *buf,
+struct wrp_wasm_mdle *wrp_instantiate_mdle(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    warp_alloc_fn alloc_fn);
+    struct wrp_wasm_meta *meta,
+    wrp_alloc_fn alloc_fn);
 
-void wrp_unload_module(struct wasm_module *mdle, warp_free_fn free_fn);
+void wrp_destroy_mdle(struct wrp_wasm_mdle *mdle, wrp_free_fn free_fn);

@@ -19,10 +19,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct wasm_meta;
+struct wrp_wasm_meta;
 
 bool wrp_is_valid_wasm_type(uint8_t type);
 
 bool wrp_is_valid_value_type(uint8_t type);
 
-bool wrp_validate_module(uint8_t *buf, size_t buf_sz, struct wasm_meta *meta);
+bool wrp_validate_module(uint8_t *buf, size_t buf_sz, struct wrp_wasm_meta *meta);

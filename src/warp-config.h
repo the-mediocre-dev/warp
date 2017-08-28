@@ -15,3 +15,5 @@
  */
 
 #pragma once
+
+#define WRP_VALUE_STACK_SIZE    4096

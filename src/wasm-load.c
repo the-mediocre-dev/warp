@@ -20,9 +20,9 @@
 
 #define ALIGN_64(x) (((x + 63) / 64) * 64)
 
-static size_t calculate_module_size(struct wasm_meta *meta)
+static size_t calculate_module_size(struct wrp_wasm_meta *meta)
 {
-    size_t module_sz = sizeof(struct wasm_module);
+    size_t module_sz = sizeof(struct wrp_wasm_mdle);
     module_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
     module_sz += ALIGN_64(meta->num_type_params * sizeof(uint8_t *));
     module_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
@@ -44,10 +44,10 @@ static size_t calculate_module_size(struct wasm_meta *meta)
     return module_sz;
 }
 
-static void initialise_module(struct wasm_meta *meta, struct wasm_module *mdle)
+static void initialise_module(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdle)
 {
     uint8_t *ptr = (uint8_t *)mdle;
-    size_t offset = sizeof(struct wasm_module);
+    size_t offset = sizeof(struct wrp_wasm_mdle);
 
     mdle->forms = (uint32_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
@@ -106,8 +106,8 @@ static void initialise_module(struct wasm_meta *meta, struct wasm_module *mdle)
 
 static void load_types(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     mdle->num_types = meta->num_types;
     uint32_t current_param = 0;
@@ -136,15 +136,15 @@ static void load_types(uint8_t *buf,
 
 static void load_imports(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
 }
 
 static void load_funcs(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     mdle->num_funcs = meta->num_funcs;
 
@@ -157,22 +157,22 @@ static void load_funcs(uint8_t *buf,
 
 static void load_tables(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
 }
 
 static void load_memories(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
 }
 
 static void load_globals(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     mdle->num_globals = meta->num_globals;
 
@@ -190,8 +190,8 @@ static void load_globals(uint8_t *buf,
 
 static void load_exports(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     mdle->num_exports = meta->num_exports;
     uint32_t current_char = 0;
@@ -216,8 +216,8 @@ static void load_exports(uint8_t *buf,
 
 static void load_start(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     if (!meta->start_func_present) {
         return;
@@ -232,15 +232,15 @@ static void load_start(uint8_t *buf,
 
 static void load_elements(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
 }
 
 static void load_code(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
     mdle->num_code_segments = meta->num_code_segments;
 
@@ -278,19 +278,19 @@ static void load_code(uint8_t *buf,
 
 static void load_data(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    struct wasm_module *mdle)
+    struct wrp_wasm_meta *meta,
+    struct wrp_wasm_mdle *mdle)
 {
 }
 
-struct wasm_module *wrp_load_module(uint8_t *buf,
+struct wrp_wasm_mdle *wrp_instantiate_mdle(uint8_t *buf,
     size_t buf_sz,
-    struct wasm_meta *meta,
-    warp_alloc_fn alloc_fn)
+    struct wrp_wasm_meta *meta,
+    wrp_alloc_fn alloc_fn)
 {
     size_t module_sz = calculate_module_size(meta);
 
-    struct wasm_module *mdle = alloc_fn(module_sz, 64);
+    struct wrp_wasm_mdle *mdle = alloc_fn(module_sz, 64);
 
     if (mdle == NULL) {
         return NULL;
@@ -312,7 +312,7 @@ struct wasm_module *wrp_load_module(uint8_t *buf,
     return mdle;
 }
 
-void wrp_unload_module(struct wasm_module *mdle, warp_free_fn free_fn)
+void wrp_destroy_mdle(struct wrp_wasm_mdle *mdle, wrp_free_fn free_fn)
 {
     free_fn(mdle);
 }

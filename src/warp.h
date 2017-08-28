@@ -22,19 +22,44 @@
 #include "warp-common.h"
 #include "warp-config.h"
 
-struct wasm_module;
-struct value_stack;
+struct wrp_wasm_mdle;
 
-struct warp_vm {
-    warp_alloc_fn alloc_fn;
-    warp_free_fn free_fn;
-    warp_trap_fn trap_fn;
-    struct wasm_module *mdl;
-    struct value_stack *stk;
-} warp_vm;
+struct wrp_vm {
+    struct wrp_wasm_mdle *mdle;
+    uint64_t stk_values[WRP_VALUE_STACK_SIZE];
+    uint8_t stk_types[WRP_VALUE_STACK_SIZE];
+    int32_t stk_head;
+    wrp_alloc_fn alloc_fn;
+    wrp_free_fn free_fn;
+    wrp_trap_fn trap_fn;
+} wrp_vm;
 
-struct warp_vm *wrp_open_vm(warp_alloc_fn alloc_fn,
-    warp_free_fn free_fn,
-    warp_trap_fn trap_fn);
+struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn,
+    wrp_free_fn free_fn,
+    wrp_trap_fn trap_fn);
 
-void wrp_close_vm(struct warp_vm *vm);
+bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
+
+bool wrp_detach_mdle(struct wrp_vm *vm);
+
+bool wrp_push_i32(struct wrp_vm *vm, int32_t value);
+
+bool wrp_push_i64(struct wrp_vm *vm, int64_t value);
+
+bool wrp_push_f32(struct wrp_vm *vm, float value);
+
+bool wrp_push_f64(struct wrp_vm *vm, double value);
+
+bool wrp_pop_i32(struct wrp_vm *vm, int32_t *value);
+
+bool wrp_pop_i64(struct wrp_vm *vm, int64_t *value);
+
+bool wrp_pop_f32(struct wrp_vm *vm, float *value);
+
+bool wrp_pop_f64(struct wrp_vm *vm, double *value);
+
+bool wrp_start(struct wrp_vm *vm);
+
+bool wrp_call(struct wrp_vm *vm, uint32_t func_idx);
+
+void wrp_close_vm(struct wrp_vm *vm);
