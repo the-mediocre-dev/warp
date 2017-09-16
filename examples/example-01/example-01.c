@@ -19,13 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <buf-io.h>
 #include <example-common.h>
 #include <warp.h>
-#include <wasm-execution.h>
-#include <wasm-load.h>
-#include <wasm-validation.h>
-#include <wasm.h>
 
 int main(int argc, char **argv)
 {
@@ -40,42 +35,26 @@ int main(int argc, char **argv)
     size_t buf_sz;
 
     if (!load_buf("square.wasm", &buf, &buf_sz)) {
-        fprintf(stderr, "opening stream from 'square.wasm' failed");
+        fprintf(stderr, "opening 'square.wasm' failed");
         abort();
     }
 
-    struct wrp_wasm_meta meta = {};
+    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
 
-    if (!wrp_validate_module(buf, buf_sz, &meta)) {
-        fprintf(stderr, "validation of module 'square.wasm' failed");
-        abort();
-    }
-
-    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(buf, buf_sz, &meta, example_alloc);
-
-    if (mdle == NULL) {
-        fprintf(stderr, "loading module 'square.wasm' failed");
+    if(mdle == NULL){
+        fprintf(stderr, "instantiating 'square.wasm' failed");
         abort();
     }
 
     free_buf(buf);
-
-    uint32_t func_idx = 0;
-    if (!wrp_get_func_idx(mdle, "square", &func_idx)) {
-        fprintf(stderr, "insert some error message");
-        abort();
-    }
-
     wrp_attach_mdle(vm, mdle);
-
     wrp_push_i32(vm, 3);
-
-    wrp_call(vm, func_idx);
+    wrp_call(vm, 0);
 
     int32_t result = 0;
     wrp_pop_i32(vm, &result);
 
-    wrp_destroy_mdle(mdle, example_free);
+    wrp_destroy_mdle(vm, mdle);
     wrp_close_vm(vm);
     return 0;
 }

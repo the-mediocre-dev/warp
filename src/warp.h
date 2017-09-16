@@ -19,24 +19,55 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "warp-common.h"
 #include "warp-config.h"
+#include "warp-error.h"
+#include "warp-wasm.h"
 
+struct wrp_vm;
 struct wrp_wasm_mdle;
+
+typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
+
+typedef void (*wrp_free_fn)(void *ptr);
+
+typedef void (*wrp_trap_fn)(struct wrp_vm *vm, int err);
+
+typedef void (*wrp_thunk_fn)(uint64_t *args,
+    uint8_t arg_types,
+    uint32_t num_args,
+    uint64_t returns,
+    uint8_t return_types,
+    uint32_t num_returns);
 
 struct wrp_vm {
     struct wrp_wasm_mdle *mdle;
-    uint64_t stk_values[WRP_VALUE_STACK_SIZE];
-    uint8_t stk_types[WRP_VALUE_STACK_SIZE];
-    int32_t stk_head;
+    uint32_t error;
+    size_t program_counter;
     wrp_alloc_fn alloc_fn;
     wrp_free_fn free_fn;
     wrp_trap_fn trap_fn;
-} wrp_vm;
+    uint64_t operand_stk_values[WRP_OPERAND_STK_SZ];
+    uint8_t operand_stk_types[WRP_OPERAND_STK_SZ];
+    int32_t operand_stk_head;
+    uint32_t block_stk_types[WRP_BLOCK_STK_SZ];
+    uint32_t block_stk_labels[WRP_BLOCK_STK_SZ];
+    int32_t block_stk_head;
+    uint32_t call_stk_func_idx[WRP_CALL_STK_SZ];
+    int32_t call_stk_operand_ptrs[WRP_CALL_STK_SZ];
+    int32_t call_stk_block_ptrs[WRP_CALL_STK_SZ];
+    size_t call_stk_return_ptrs[WRP_CALL_STK_SZ];
+    int32_t call_stk_head;
+};
 
 struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn,
     wrp_free_fn free_fn,
     wrp_trap_fn trap_fn);
+
+struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
+    uint8_t *buf,
+    size_t buf_sz);
+
+void wrp_destroy_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
 
 bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
 
@@ -61,5 +92,7 @@ bool wrp_pop_f64(struct wrp_vm *vm, double *value);
 bool wrp_start(struct wrp_vm *vm);
 
 bool wrp_call(struct wrp_vm *vm, uint32_t func_idx);
+
+void wrp_reset_vm(struct wrp_vm *vm);
 
 void wrp_close_vm(struct wrp_vm *vm);

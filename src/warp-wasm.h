@@ -20,31 +20,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// mandated by standard
-#define WASM_MAGIC_NUMBER       0x6d736100
-#define WASM_VERSION            0x01
-#define PAGE_SIZE               (1u << 16)  // 64kb page size
-#define MAX_TABLES              1u
-#define MAX_MEMORIES            1u
-
-// implementation limitations
-#define MAX_MODULE_NAME         64u
-#define MAX_TYPES               32u
-#define MAX_FUNCS               128u
-#define MAX_GLOBALS             32u
-#define MAX_ELEMENT_SEGMENTS    32u
-#define MAX_DATA_SEGMENTS       32u
-#define MAX_IMPORTS             32u
-#define MAX_EXPORTS             32u
-#define MAX_FUNCTION_PARAMETERS 32u
-#define MAX_FUNCTION_RESULTS    32u
-#define MAX_FUNCTION_LOCALS     32u
-#define MAX_FUNCTION_BODY_SIZE  32u
-#define MAX_TABLE_SIZE          4096u
-#define MAX_MEMORY_SIZE         1u
-#define MAX_GLOBAL_NAME_SIZE    128u
-#define MAX_CODE_SEGMENTS       128u
-#define MAX_LOCALS              1024u
+#include "warp-config.h"
 
 // section encodings
 #define SECTION_CUSTOM          0x00
@@ -87,6 +63,12 @@
 // mutability
 #define GLOBAL_IMMUTABLE        0x00
 #define GLOBAL_MUTABLE          0x01
+
+// blocks. Not defined in the spec
+#define BLOCK                   0x00
+#define BLOCK_FUNC              0x01
+#define BLOCK_IF                0x02
+#define BLOCK_LOOP              0x03
 
 // op codes
 #define OP_UNREACHABLE          0x00
@@ -281,6 +263,7 @@
 #define OP_I64_REINTERPRET_F64  0xBD
 #define OP_F32_REINTERPRET_I32  0xBE
 #define OP_F64_REINTERPRET_I64  0xBF
+#define NUM_OPCODES             0xC0
 
 struct wrp_wasm_meta {
     size_t types[MAX_TYPES];
@@ -302,17 +285,16 @@ struct wrp_wasm_meta {
     size_t start_func;
     size_t elements[MAX_ELEMENT_SEGMENTS];
     uint32_t num_elements;
-    size_t code[MAX_CODE_SEGMENTS];
-    uint32_t num_code_segments;
+    size_t codes[MAX_FUNCS];
     uint32_t num_code_locals;
     size_t code_body_sz;
-    uint32_t validation_result;
+    uint32_t num_blocks;
 };
 
 struct wrp_wasm_mdle {
     //force struct alignment at member level, as struct level
     //usage of alignas only works in C++, for some magical reason
-    alignas(64) uint32_t *forms;
+    alignas(64) uint8_t *forms;
     uint8_t *param_types;
     uint32_t *param_type_offsets;
     uint32_t *param_counts;
@@ -331,13 +313,28 @@ struct wrp_wasm_mdle {
     uint32_t *export_name_offsets;
     uint32_t *export_func_idxs;
     uint32_t num_exports;
+
     uint8_t *local_types;
     uint32_t *local_type_offsets;
     uint32_t *local_counts;
+
     uint8_t *code;
-    size_t *start_instructions;
-    uint32_t num_code_segments;
+    uint8_t **code_bodies;
+    size_t *code_bodies_sz;
+    size_t *blocks;
+    size_t *block_labels;
+    uint32_t num_blocks;
 };
+
+size_t wrp_mdle_sz(struct wrp_wasm_meta *meta);
+
+void wrp_mdle_init(struct wrp_wasm_mdle *mdle, struct wrp_wasm_meta *meta);
+
+bool wrp_is_valid_wasm_type(uint8_t type);
+
+bool wrp_is_valid_block_type(uint8_t type);
+
+bool wrp_is_valid_value_type(uint8_t type);
 
 bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     const char *func_name,

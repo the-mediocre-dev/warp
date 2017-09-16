@@ -20,15 +20,14 @@
 
 struct wrp_vm;
 
-typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
+uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, uint8_t type);
 
-typedef void (*wrp_free_fn)(void *ptr);
+uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, uint8_t type);
 
-typedef void (*wrp_trap_fn)(struct wrp_vm *vm, int err);
+uint32_t wrp_push_block(struct wrp_vm *vm);
 
-typedef void (*wrp_thunk_fn)(uint64_t *args,
-    uint8_t arg_types,
-    uint32_t num_args,
-    uint64_t returns,
-    uint8_t return_types,
-    uint32_t num_returns);
+uint32_t wrp_pop_block(struct wrp_vm *vm);
+
+uint32_t wrp_push_call(struct wrp_vm *vm, uint32_t func_idx);
+
+uint32_t wrp_pop_call(struct wrp_vm *vm);

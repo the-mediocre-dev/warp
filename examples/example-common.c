@@ -16,14 +16,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include "buf-io.h"
+#include "warp-buf.h"
 #include "example-common.h"
 #include <warp.h>
 
 void *example_alloc(size_t size, size_t align)
 {
-    return malloc(size);
+    void *ptr = malloc(size);
+    memset(ptr, 0, size);
+    return ptr;
 }
 
 void example_free(void *ptr)

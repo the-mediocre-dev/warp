@@ -16,13 +16,15 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#define WRP_ALIGN_64(x) (((x + 63) / 64) * 64)
 
-struct wrp_wasm_meta;
+#define WRP_CHECK(x)                \
+{                                   \
+    uint32_t error = (x);           \
+                                    \
+    if(error != WRP_SUCCESS){       \
+        return error;               \
+    }                               \
+}
 
-bool wrp_is_valid_wasm_type(uint8_t type);
 
-bool wrp_is_valid_value_type(uint8_t type);
-
-bool wrp_validate_module(uint8_t *buf, size_t buf_sz, struct wrp_wasm_meta *meta);

@@ -16,17 +16,11 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 
-#include "warp-common.h"
-
+struct wrp_vm;
 struct wrp_wasm_meta;
-struct wrp_wasm_mdle;
 
-struct wrp_wasm_mdle *wrp_instantiate_mdle(uint8_t *buf,
+uint32_t wrp_validate_mdle(uint8_t *buf,
     size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    wrp_alloc_fn alloc_fn);
-
-void wrp_destroy_mdle(struct wrp_wasm_mdle *mdle, wrp_free_fn free_fn);
+    struct wrp_wasm_meta *meta);
