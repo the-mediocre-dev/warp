@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 uint32_t wrp_seek(uint8_t *buf, size_t buf_sz, size_t *pos, size_t new_pos);

@@ -32,7 +32,7 @@ void test_free(void *ptr)
 
 bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz)
 {
-    FILE *file = fopen(path, "rb");
+    FILE *file = fopen((char *)path, "rb");
 
     if (file == NULL) {
         return false;

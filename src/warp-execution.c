@@ -14,6 +14,8 @@
  *  limitations under the License.
  */
 
+#include <stddef.h>
+
 #include "warp-execution.h"
 #include "warp-buf.h"
 #include "warp-error.h"
