@@ -16,6 +16,8 @@
 
 #include <string.h>
 
+#include "warp-buf.h"
+#include "warp-error.h"
 #include "warp-macros.h"
 #include "warp-wasm.h"
 
@@ -175,4 +177,96 @@ bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     }
 
     return false;
+}
+
+uint32_t check_immediates(uint8_t opcode,
+    uint8_t *buf,
+    size_t buf_sz,
+    size_t *pos,
+    struct wrp_wasm_meta *meta)
+{
+    if (opcode >= OP_BLOCK && opcode <= OP_IF) {
+        int8_t block_type = 0;
+        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
+
+        if (!wrp_is_valid_block_type(block_type)) {
+            return WRP_ERR_INVALID_BLOCK_TYPE;
+        }
+    } else if (opcode >= OP_BR && opcode <= OP_BR_IF) {
+        uint32_t relative_depth = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &relative_depth));
+    } else if (opcode == OP_BR_TABLE) {
+        uint32_t target_count = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target_count));
+
+        for (uint32_t i = 0; i < target_count; i++) {
+            uint32_t target = 0;
+            WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target));
+        }
+
+        uint32_t default_target = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &default_target));
+    } else if (opcode == OP_CALL) {
+        uint32_t func_idx = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &func_idx));
+
+        if (func_idx >= meta->num_funcs) {
+            return WRP_ERR_INVALID_FUNC_IDX;
+        }
+    } else if (opcode == OP_CALL_INDIRECT) {
+        uint32_t type_idx = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &type_idx));
+
+        if (type_idx >= meta->num_types) {
+            return WRP_ERR_INVALID_TYPE_IDX;
+        }
+
+        int8_t indirect_reserved = 0;
+        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &indirect_reserved));
+
+        if (indirect_reserved != 0) {
+            return WRP_ERR_INVALID_RESERVED;
+        }
+    } else if (opcode >= OP_GET_LOCAL && opcode <= OP_SET_LOCAL) {
+        uint32_t local_idx = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &local_idx));
+
+        //TODO validate local idx
+    } else if (opcode >= OP_GET_GLOBAL && opcode <= OP_SET_GLOBAL) {
+        uint32_t global_idx = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &global_idx));
+
+        if (global_idx >= meta->num_globals) {
+            return WRP_ERR_INVALID_GLOBAL_IDX;
+        }
+    } else if (opcode >= OP_I32_LOAD && opcode <= OP_I64_STORE_32) {
+        uint32_t memory_immediate_flags = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_flags));
+
+        uint32_t memory_immediate_offset = 0;
+        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_offset));
+
+        //TODO validate memory immediate
+    } else if (opcode >= OP_CURRENT_MEMORY && opcode <= OP_GROW_MEMORY) {
+        int8_t memory_reserved = 0;
+        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &memory_reserved));
+
+        if (memory_reserved != 0) {
+            return WRP_ERR_INVALID_RESERVED;
+        }
+    } else if (opcode == OP_I32_CONST) {
+        int32_t i32_const = 0;
+        WRP_CHECK(wrp_read_vari32(buf, buf_sz, pos, &i32_const));
+    } else if (opcode == OP_I64_CONST) {
+        int64_t i64_const = 0;
+        WRP_CHECK(wrp_read_vari64(buf, buf_sz, pos, &i64_const));
+    } else if (opcode == OP_F32_CONST) {
+        float f32_const = 0;
+        WRP_CHECK(wrp_read_f32(buf, buf_sz, pos, &f32_const));
+    } else if (opcode == OP_F64_CONST) {
+        double f64_const = 0;
+        WRP_CHECK(wrp_read_f64(buf, buf_sz, pos, &f64_const));
+    }
+
+    return WRP_SUCCESS;
 }

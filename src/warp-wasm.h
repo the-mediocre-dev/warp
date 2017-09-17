@@ -314,11 +314,9 @@ struct wrp_wasm_mdle {
     uint32_t *export_name_offsets;
     uint32_t *export_func_idxs;
     uint32_t num_exports;
-
     uint8_t *local_types;
     uint32_t *local_type_offsets;
     uint32_t *local_counts;
-
     uint8_t *code;
     uint8_t **code_bodies;
     size_t *code_bodies_sz;
@@ -340,3 +338,9 @@ bool wrp_is_valid_value_type(uint8_t type);
 bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     const char *func_name,
     uint32_t *func_idx);
+
+uint32_t check_immediates(uint8_t opcode,
+    uint8_t *buf,
+    size_t buf_sz,
+    size_t *pos,
+    struct wrp_wasm_meta *meta);

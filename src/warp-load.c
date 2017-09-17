@@ -228,139 +228,6 @@ static uint32_t load_data(uint8_t *buf,
     return WRP_SUCCESS;
 }
 
-//TODO this is pretty much duplicate code..
-static uint32_t skip_immediates(uint8_t opcode,
-    uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos)
-{
-    switch (opcode) {
-    case OP_BLOCK:
-    case OP_LOOP:
-    case OP_IF:
-        int8_t block_type = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
-        WRP_CHECK(wrp_is_valid_block_type(block_type));
-        break;
-
-    case OP_BR:
-    case OP_BR_IF:
-        uint32_t relative_depth = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &relative_depth));
-        break;
-
-    case OP_BR_TABLE:
-        uint32_t target_count = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target_count));
-
-        for (uint32_t i = 0; i < target_count; i++) {
-            uint32_t target = 0;
-            WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target));
-        }
-
-        uint32_t default_target = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &default_target));
-
-        break;
-    case OP_CALL:
-        uint32_t func_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &func_idx));
-
-        break;
-
-    case OP_CALL_INDIRECT:
-        uint32_t type_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &type_idx));
-
-        int8_t indirect_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &indirect_reserved));
-
-        if (indirect_reserved != 0) {
-            return false;
-        }
-
-        break;
-
-    case OP_GET_LOCAL:
-    case OP_SET_LOCAL:
-        uint32_t local_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &local_idx));
-        break;
-
-    case OP_GET_GLOBAL:
-    case OP_SET_GLOBAL:
-        uint32_t global_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &global_idx));
-        break;
-
-    case OP_I32_LOAD:
-    case OP_I64_LOAD:
-    case OP_F32_LOAD:
-    case OP_F64_LOAD:
-    case OP_I32_LOAD_8_S:
-    case OP_I32_LOAD_8_U:
-    case OP_I32_LOAD_16_S:
-    case OP_I32_LOAD_16_U:
-    case OP_I64_LOAD_8_S:
-    case OP_I64_LOAD_8_U:
-    case OP_I64_LOAD_16_S:
-    case OP_I64_LOAD_16_U:
-    case OP_I64_LOAD_32_S:
-    case OP_I64_LOAD_32_U:
-    case OP_I32_STORE:
-    case OP_I64_STORE:
-    case OP_F32_STORE:
-    case OP_F64_STORE:
-    case OP_I32_STORE_8:
-    case OP_I32_STORE_16:
-    case OP_I64_STORE_8:
-    case OP_I64_STORE_16:
-    case OP_I64_STORE_32:
-        uint32_t memory_immediate_flags = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_flags));
-
-        uint32_t memory_immediate_offset = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_offset));
-
-        //TODO validate memory immediate
-
-        break;
-    case OP_CURRENT_MEMORY:
-    case OP_GROW_MEMORY:
-        int8_t memory_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &memory_reserved));
-
-        if (memory_reserved != 0) {
-            return false;
-        }
-        break;
-
-    case OP_I32_CONST:
-        int32_t i32_const = 0;
-        WRP_CHECK(wrp_read_vari32(buf, buf_sz, pos, &i32_const));
-
-        case OP_I64_CONST:
-        int64_t i64_const = 0;
-        WRP_CHECK(wrp_read_vari64(buf, buf_sz, pos, &i64_const));
-        break;
-
-    case OP_F32_CONST:
-        float f32_const = 0;
-        WRP_CHECK(wrp_read_f32(buf, buf_sz, pos, &f32_const));
-        break;
-
-    case OP_F64_CONST:
-        double f64_const = 0;
-        WRP_CHECK(wrp_read_f64(buf, buf_sz, pos, &f64_const));
-        break;
-
-    default:
-        break;
-    }
-
-    return WRP_SUCCESS;
-}
-
 static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdle)
 {
     mdle->num_blocks = meta->num_blocks;
@@ -400,7 +267,7 @@ static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdl
                 mdle->block_labels[block_idx] = pos - 1;
             }
 
-            WRP_CHECK(skip_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos));
+            WRP_CHECK(check_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, meta));
         }
     }
 

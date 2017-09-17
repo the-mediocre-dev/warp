@@ -286,153 +286,6 @@ static uint32_t validate_element_section(uint8_t *buf,
     return WRP_SUCCESS;
 }
 
-static uint32_t validate_immediates(uint8_t opcode,
-    uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos,
-    struct wrp_wasm_meta *meta)
-{
-    switch (opcode) {
-    case OP_BLOCK:
-    case OP_LOOP:
-    case OP_IF:
-        int8_t block_type = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
-
-        if (!wrp_is_valid_block_type(block_type)) {
-            return WRP_ERR_INVALID_BLOCK_TYPE;
-        }
-
-        break;
-
-    case OP_BR:
-    case OP_BR_IF:
-        uint32_t relative_depth = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &relative_depth));
-
-        break;
-
-    case OP_BR_TABLE:
-        uint32_t target_count = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target_count));
-
-        for (uint32_t i = 0; i < target_count; i++) {
-            uint32_t target = 0;
-            WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target));
-        }
-
-        uint32_t default_target = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &default_target));
-
-        break;
-    case OP_CALL:
-        uint32_t func_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &func_idx));
-
-        if (func_idx >= meta->num_funcs) {
-            return WRP_ERR_INVALID_FUNC_IDX;
-        }
-
-        break;
-
-    case OP_CALL_INDIRECT:
-        uint32_t type_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &type_idx));
-
-        if (type_idx >= meta->num_types) {
-            return WRP_ERR_INVALID_TYPE_IDX;
-        }
-
-        int8_t indirect_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &indirect_reserved));
-
-        if (indirect_reserved != 0) {
-            return WRP_ERR_INVALID_RESERVED;
-        }
-        break;
-
-    case OP_GET_LOCAL:
-    case OP_SET_LOCAL:
-        uint32_t local_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &local_idx));
-
-        //TODO validate local idx
-        break;
-
-    case OP_GET_GLOBAL:
-    case OP_SET_GLOBAL:
-        uint32_t global_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &global_idx));
-
-        if (global_idx >= meta->num_globals) {
-            return WRP_ERR_INVALID_GLOBAL_IDX;
-        }
-        break;
-
-    case OP_I32_LOAD:
-    case OP_I64_LOAD:
-    case OP_F32_LOAD:
-    case OP_F64_LOAD:
-    case OP_I32_LOAD_8_S:
-    case OP_I32_LOAD_8_U:
-    case OP_I32_LOAD_16_S:
-    case OP_I32_LOAD_16_U:
-    case OP_I64_LOAD_8_S:
-    case OP_I64_LOAD_8_U:
-    case OP_I64_LOAD_16_S:
-    case OP_I64_LOAD_16_U:
-    case OP_I64_LOAD_32_S:
-    case OP_I64_LOAD_32_U:
-    case OP_I32_STORE:
-    case OP_I64_STORE:
-    case OP_F32_STORE:
-    case OP_F64_STORE:
-    case OP_I32_STORE_8:
-    case OP_I32_STORE_16:
-    case OP_I64_STORE_8:
-    case OP_I64_STORE_16:
-    case OP_I64_STORE_32:
-        uint32_t memory_immediate_flags = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_flags));
-
-        uint32_t memory_immediate_offset = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_offset));
-
-        //TODO validate memory immediate
-
-        break;
-    case OP_CURRENT_MEMORY:
-    case OP_GROW_MEMORY:
-        int8_t memory_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &memory_reserved));
-
-        if (memory_reserved != 0) {
-            return WRP_ERR_INVALID_RESERVED;
-        }
-
-    case OP_I32_CONST:
-        int32_t i32_const = 0;
-        WRP_CHECK(wrp_read_vari32(buf, buf_sz, pos, &i32_const));
-
-    case OP_I64_CONST:
-        int64_t i64_const = 0;
-        WRP_CHECK(wrp_read_vari64(buf, buf_sz, pos, &i64_const));
-
-    case OP_F32_CONST:
-        float f32_const = 0;
-        WRP_CHECK(wrp_read_f32(buf, buf_sz, pos, &f32_const));
-
-    case OP_F64_CONST:
-        double f64_const = 0;
-        WRP_CHECK(wrp_read_f64(buf, buf_sz, pos, &f64_const));
-
-    default:
-        break;
-    }
-
-    return WRP_SUCCESS;
-}
-
 static uint32_t validate_code_section(uint8_t *buf,
     size_t buf_sz,
     size_t *pos,
@@ -484,7 +337,7 @@ static uint32_t validate_code_section(uint8_t *buf,
         while (*pos <= end_pos) {
             uint8_t opcode = 0;
             WRP_CHECK(wrp_read_uint8(buf, buf_sz, pos, &opcode));
-            WRP_CHECK(validate_immediates(opcode, buf, buf_sz, pos, meta));
+            WRP_CHECK(check_immediates(opcode, buf, buf_sz, pos, meta));
 
             if (opcode == OP_BLOCK || opcode == OP_IF || opcode == OP_ELSE || opcode == OP_LOOP) {
                 num_blocks++;
@@ -614,7 +467,7 @@ uint32_t wrp_validate_mdle(uint8_t *buf, size_t buf_sz, struct wrp_wasm_meta *me
         prev_section_id = section_id;
     }
 
-    if(!wrp_end_of_buf(buf, buf_sz, pos)){
+    if (!wrp_end_of_buf(buf, buf_sz, pos)) {
         return WRP_ERR_MDLE_INVALID_BYTES;
     }
 
