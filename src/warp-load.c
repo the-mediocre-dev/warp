@@ -239,8 +239,8 @@ static uint32_t skip_immediates(uint8_t opcode,
     case OP_LOOP:
     case OP_IF:
         int8_t block_type = 0;
-        WRP_CHECK(!wrp_read_vari7(buf, buf_sz, pos, &block_type));
-        WRP_CHECK(!wrp_is_valid_block_type(block_type));
+        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
+        WRP_CHECK(wrp_is_valid_block_type(block_type));
         break;
 
     case OP_BR:
