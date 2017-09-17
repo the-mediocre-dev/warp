@@ -29,7 +29,5 @@ void test_if(struct wrp_vm *vm, const char *dir, uint8_t *path_buf, size_t path_
     WRP_ASSERT(mdle, "failed to instantiate 'if.wasm'");
     WRP_ASSERT(wrp_attach_mdle(vm, mdle), "failed to attach module 'if.wasm'");
 
-
-
     wrp_destroy_mdle(vm, mdle);
 }
