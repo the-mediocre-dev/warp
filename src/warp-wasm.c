@@ -179,7 +179,7 @@ bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     return false;
 }
 
-uint32_t check_immediates(uint8_t opcode,
+uint32_t wrp_check_immediates(uint8_t opcode,
     uint8_t *buf,
     size_t buf_sz,
     size_t *pos,

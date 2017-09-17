@@ -267,7 +267,7 @@ static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdl
                 mdle->block_labels[block_idx] = pos - 1;
             }
 
-            WRP_CHECK(check_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, meta));
+            WRP_CHECK(wrp_check_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, meta));
         }
     }
 

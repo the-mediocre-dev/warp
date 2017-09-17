@@ -337,7 +337,7 @@ static uint32_t validate_code_section(uint8_t *buf,
         while (*pos <= end_pos) {
             uint8_t opcode = 0;
             WRP_CHECK(wrp_read_uint8(buf, buf_sz, pos, &opcode));
-            WRP_CHECK(check_immediates(opcode, buf, buf_sz, pos, meta));
+            WRP_CHECK(wrp_check_immediates(opcode, buf, buf_sz, pos, meta));
 
             if (opcode == OP_BLOCK || opcode == OP_IF || opcode == OP_ELSE || opcode == OP_LOOP) {
                 num_blocks++;
