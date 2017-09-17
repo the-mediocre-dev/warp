@@ -1,0 +1,55 @@
+#warp build file
+
+target = bin/warp-spec-tests.exe
+builddir = obj
+cc = clang -Wall -fcolor-diagnostics -fansi-escape-codes -I ".\src" -I ".\test"
+ll = clang
+
+rule compile
+  command = $cc $cf -c $in -o $out
+
+rule link
+  command = $ll $lf $in -o $out
+
+build $builddir\src\warp-buf.o: $
+  compile .\src\warp-buf.c
+
+build $builddir\src\warp-execution.o: $
+  compile .\src\warp-execution.c
+
+build $builddir\src\warp-load.o: $
+  compile .\src\warp-load.c
+
+build $builddir\src\warp-stack-ops.o: $
+  compile .\src\warp-stack-ops.c
+
+build $builddir\src\warp-validation.o: $
+  compile .\src\warp-validation.c
+
+build $builddir\src\warp-wasm.o: $
+  compile .\src\warp-wasm.c
+
+build $builddir\src\warp.o: $
+  compile .\src\warp.c
+
+build $builddir\test\test-common.o: $
+  compile .\test\test-common.c
+
+build $builddir\test\warp-spec-tests.o: $
+  compile .\test\warp-spec-tests.c
+
+build $builddir\test\if-tests.o: $
+  compile .\test\if-tests.c
+
+build $target : link $builddir\src\warp-buf.o $
+                     $builddir\src\warp-execution.o $
+                     $builddir\src\warp-load.o $
+                     $builddir\src\warp-stack-ops.o $
+                     $builddir\src\warp-validation.o $
+                     $builddir\src\warp-wasm.o $
+                     $builddir\src\warp.o $
+                     $builddir\test\test-common.o $
+                     $builddir\test\warp-spec-tests.o $
+                     $builddir\test\if-tests.o
+
+default $target

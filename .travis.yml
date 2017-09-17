@@ -1,4 +1,10 @@
+# Enable C support
 language: c
 
+# Compiler selection
 compiler:
   - clang
+
+# Build steps
+script:
+  - ninja

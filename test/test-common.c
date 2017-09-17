@@ -14,32 +14,23 @@
  *  limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "warp-buf.h"
-#include "example-common.h"
-#include <warp.h>
+#include "test-common.h"
 
-void *example_alloc(size_t size, size_t align)
+void *test_alloc(size_t size, size_t align)
 {
     void *ptr = malloc(size);
     memset(ptr, 0, size);
     return ptr;
 }
 
-void example_free(void *ptr)
+void test_free(void *ptr)
 {
     free(ptr);
 }
 
-void example_trap(struct wrp_vm *vm, int err)
-{
-    fprintf(stderr, "trap: %d", err);
-}
-
-bool load_buf(const char *path, uint8_t **buf, size_t *buf_sz)
+bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz)
 {
     FILE *file = fopen(path, "rb");
 
@@ -55,7 +46,7 @@ bool load_buf(const char *path, uint8_t **buf, size_t *buf_sz)
         return false;
     }
 
-    *buf = example_alloc(len, 0);
+    *buf = malloc(len);
 
     if (*buf == NULL) {
         fclose(file);
@@ -72,5 +63,25 @@ bool load_buf(const char *path, uint8_t **buf, size_t *buf_sz)
 
 void free_buf(uint8_t *buf)
 {
-    example_free(buf);
+    free(buf);
+}
+
+bool make_path(const char *path, const char *file, uint8_t *buf, size_t buf_sz)
+{
+    size_t path_len = strlen(path);
+    size_t file_len = strlen(file);
+
+    if (path_len + file_len + 1 >= buf_sz)
+        return false;
+
+    size_t current_char = 0;
+
+    for (size_t i = 0; i < path_len; i++)
+        buf[current_char++] = path[i];
+
+    for (size_t i = 0; i < file_len; i++)
+        buf[current_char++] = file[i];
+
+    buf[current_char] = '\0';
+    return true;
 }

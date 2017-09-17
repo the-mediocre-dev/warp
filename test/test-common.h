@@ -16,18 +16,28 @@
 
 #pragma once
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-struct wrp_vm;
-struct byte_stream;
+#include <warp.h>
 
-void *example_alloc(size_t size, size_t align);
+#define WRP_ASSERT(condition, format, ...)          \
+    {                                               \
+        if (!(!!(condition))) {                     \
+            fprintf(stderr, format, __VA_ARGS__);   \
+            abort();                                \
+        }                                           \
+    }
 
-void example_free(void *ptr);
+void *test_alloc(size_t size, size_t align);
 
-void example_trap(struct wrp_vm *vm, int err);
+void test_free(void *ptr);
 
-bool load_buf(const char *path, uint8_t **buf, size_t *buf_sz);
+bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz);
 
 void free_buf(uint8_t *buf);
+
+bool make_path(const char*path, const char *file, uint8_t *buf, size_t buf_sz);

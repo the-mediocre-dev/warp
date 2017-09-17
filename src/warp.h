@@ -30,8 +30,6 @@ typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
 
 typedef void (*wrp_free_fn)(void *ptr);
 
-typedef void (*wrp_trap_fn)(struct wrp_vm *vm, int err);
-
 typedef void (*wrp_thunk_fn)(uint64_t *args,
     uint8_t arg_types,
     uint32_t num_args,
@@ -45,7 +43,6 @@ struct wrp_vm {
     size_t program_counter;
     wrp_alloc_fn alloc_fn;
     wrp_free_fn free_fn;
-    wrp_trap_fn trap_fn;
     uint64_t operand_stk_values[WRP_OPERAND_STK_SZ];
     uint8_t operand_stk_types[WRP_OPERAND_STK_SZ];
     int32_t operand_stk_head;
@@ -59,9 +56,7 @@ struct wrp_vm {
     int32_t call_stk_head;
 };
 
-struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn,
-    wrp_free_fn free_fn,
-    wrp_trap_fn trap_fn);
+struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn);
 
 struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
     uint8_t *buf,

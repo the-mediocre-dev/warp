@@ -23,11 +23,9 @@
 #include "warp-validation.h"
 #include "warp-wasm.h"
 
-struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn,
-    wrp_free_fn free_fn,
-    wrp_trap_fn trap_fn)
+struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn)
 {
-    if (!alloc_fn || !free_fn || !trap_fn) {
+    if (!alloc_fn || !free_fn) {
         return NULL;
     }
 
@@ -39,7 +37,6 @@ struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn,
 
     vm->alloc_fn = alloc_fn;
     vm->free_fn = free_fn;
-    vm->trap_fn = trap_fn;
     vm->error = WRP_SUCCESS;
     vm->mdle = NULL;
     vm->operand_stk_head = -1;
@@ -53,13 +50,14 @@ struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
     uint8_t *buf,
     size_t buf_sz)
 {
+    //TODO dynamically allocate? May be too large for stack...
     struct wrp_wasm_meta meta = {};
 
     uint32_t error = wrp_validate_mdle(buf, buf_sz, &meta);
 
     if(error != WRP_SUCCESS){
         vm->error = error;
-        return false;
+        return NULL;
     }
 
     size_t mdle_sz = wrp_mdle_sz(&meta);
@@ -77,7 +75,7 @@ struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
     if(error != WRP_SUCCESS){
         vm->error = error;
         vm->free_fn(mdle);
-        return false;
+        return NULL;
     }
 
     return mdle;
@@ -199,13 +197,12 @@ bool wrp_call(struct wrp_vm *vm, uint32_t func_idx)
     }
 
     if (func_idx >= vm->mdle->num_funcs) {
-        //trap
         return false;
     }
 
-    uint32_t err = wrp_exec(vm, func_idx);
+    uint32_t error = wrp_exec(vm, func_idx);
 
-    if(err != WRP_SUCCESS){
+    if(error != WRP_SUCCESS){
         //trap
         return false;
     }
