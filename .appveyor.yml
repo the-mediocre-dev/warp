@@ -1,0 +1,21 @@
+os:
+  - Visual Studio 2015
+
+build:
+  verbosity: detailed
+
+install:
+  - mkdir C:\projects\deps
+  - cd C:\projects\deps
+  - appveyor DownloadFile "https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip" -FileName ninja.zip
+  - 7z x ninja.zip -oC:\projects\deps\ninja > nul
+  - set PATH=C:\projects\deps\ninja;%PATH%
+  - ninja --version
+
+before_build:
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+  - cd C:\projects\warp
+
+# Build steps
+build_script:
+  - ninja
