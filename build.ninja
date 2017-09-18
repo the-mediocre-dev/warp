@@ -2,7 +2,7 @@
 
 target = bin/warp-spec-tests.exe
 builddir = obj
-cc = clang -std=c11 -Wall -fcolor-diagnostics -fansi-escape-codes -I "./src" -I "./test"
+cc = clang -std=c11 -Wall -pedantic -fcolor-diagnostics -fansi-escape-codes -I "./src" -I "./test"
 ll = clang
 
 rule compile
