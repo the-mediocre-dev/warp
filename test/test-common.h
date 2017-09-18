@@ -25,13 +25,11 @@
 
 #include <warp.h>
 
-#define WRP_ASSERT(condition, format, ...)          \
-    {                                               \
-        if (!(!!(condition))) {                     \
-            fprintf(stderr, format, __VA_ARGS__);   \
-            abort();                                \
-        }                                           \
-    }
+#define WRP_ASSERT(condition, format, ...)      \
+if (!(!!(condition))) {                         \
+    fprintf(stderr, format, __VA_ARGS__);       \
+    abort();                                    \
+}                                               \
 
 void *test_alloc(size_t size, size_t align);
 
