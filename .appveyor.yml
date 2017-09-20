@@ -1,9 +1,11 @@
+# Compiler selection
 os:
   - Visual Studio 2015
 
 build:
   verbosity: detailed
 
+# Install dependencies
 install:
   - mkdir C:\projects\deps
   - cd C:\projects\deps
@@ -12,11 +14,12 @@ install:
   - set PATH=C:\projects\deps\ninja;%PATH%
   - ninja --version
 
+# Set up
 before_build:
   - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
   - cd C:\projects\warp
 
-# Build steps
+# Build
 build_script:
   - ninja -f .\build-scripts\win.ninja
 

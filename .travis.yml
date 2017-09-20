@@ -10,8 +10,10 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y ninja-build
 
-# Build steps
+# Build
 script:
   - ninja -f ./build-scripts/nix.ninja
-  - ./bin/warp-spec-tests.exe ./spec/
 
+# Run tests
+after_success:
+  - ./bin/warp-spec-tests.exe ./spec/
