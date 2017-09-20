@@ -16,9 +16,15 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 struct wrp_vm;
 
-void test_if(struct wrp_vm *vm, const char *dir, uint8_t *path_buf, size_t path_buf_sz);
+void run_if_tests(struct wrp_vm *vm,
+    const char *dir,
+    uint8_t *path_buf,
+    size_t path_buf_sz,
+    uint32_t *passed,
+    uint32_t *failed);

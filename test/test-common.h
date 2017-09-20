@@ -17,28 +17,48 @@
 #pragma once
 
 #include <stdarg.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <warp.h>
 
-#define WRP_ASSERT(condition, format, ...)              \
-    {                                                   \
-        if (!(!!(condition))) {                         \
-            fprintf(stderr, format, ##__VA_ARGS__);     \
-            abort();                                    \
-        }                                               \
+#define GREEN_TEXT(text) "\x1b[32;1m" text "\x1b[0m"
+#define RED_TEXT(text) "\x1b[31;1m" text "\x1b[0m"
+
+#define WRP_ASSERT(condition, format, ...)      \
+    if (!(!!(condition))) {                     \
+        fprintf(stderr, format, ##__VA_ARGS__); \
+        abort();                                \
     }
+
+#define WRP_START_TESTS(vm, dir, path_buf, path_buf_sz, mdle_name) \
+    printf("running test module %s\n", mdle_name);                 \
+    load_test_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);
+
+#define WRP_RUN_TEST(vm, test, passed, failed)    \
+    if (test(vm)) {                               \
+        printf(GREEN_TEXT("%s passed\n"), #test); \
+        (passed)++;                               \
+    } else {                                      \
+        printf(RED_TEXT("%s failed\n"), #test);   \
+        (failed)++;                               \
+    }
+
+#define WRP_END_TESTS(vm) \
+    unload_test_mdle(vm); \
+    printf("complete\n\n");
 
 void *test_alloc(size_t size, size_t align);
 
 void test_free(void *ptr);
 
-bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz);
+void load_test_mdle(struct wrp_vm *vm,
+    const char *dir,
+    uint8_t *path_buf,
+    size_t path_buf_sz,
+    const char *mdle_name);
 
-void free_buf(uint8_t *buf);
-
-bool make_path(const char*path, const char *file, uint8_t *buf, size_t buf_sz);
+void unload_test_mdle(struct wrp_vm *vm);

@@ -14,33 +14,57 @@
  *  limitations under the License.
  */
 
+#include <stdalign.h>
+#include <stdint.h>
+
 #include "test-common.h"
 #include "if-tests.h"
 
-#define NUM_TESTS 1
 #define MAX_FILE_PATH 4096
 
-typedef void (*test_fn)(struct wrp_vm *vm, const char *path, uint8_t *buf, size_t buf_sz);
+void print_header()
+{
+    printf("--------------------------------------------------------------------------------\n");
+    printf("                                                                                \n");
+    printf("                             WARP SPEC TESTS                                    \n");
+    printf("                                                                                \n");
+    printf("--------------------------------------------------------------------------------\n");
+}
 
-static const test_fn test_jump_table[] = {
-    test_if
-};
+void print_footer(uint32_t passed, uint32_t failed)
+{
+    printf(GREEN_TEXT("passed:%d  "), passed);
+    printf(RED_TEXT("failed:%d\n\n"), failed);
+
+    if(failed == 0){
+        printf(GREEN_TEXT("spec tests passed"));
+    }else{
+        printf(RED_TEXT("spec tests failed"));
+    }
+}
 
 int main(int argc, char** argv)
 {
     WRP_ASSERT(argc >= 2, "invalid args");
 
+    print_header();
+
     struct wrp_vm *vm = wrp_open_vm(test_alloc, test_free);
     WRP_ASSERT(vm, "vm failed to initialise");
 
-    uint8_t *path_buf = test_alloc(MAX_FILE_PATH + 1, 0);
+    uint8_t *path_buf = test_alloc(MAX_FILE_PATH + 1, alignof(uint8_t));
     WRP_ASSERT(path_buf, "failed to allocate path buffer");
 
-    for(uint32_t i = 0; i < NUM_TESTS; i++){
-        test_jump_table[i](vm, argv[2], path_buf, MAX_FILE_PATH + 1);
-    }
+    uint32_t passed = 0;
+    uint32_t failed = 0;
+    run_if_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
 
     test_free(path_buf);
     wrp_close_vm(vm);
-    return 0;
+
+    print_footer(passed, failed);
+
+    return (failed == 0) ? 0 : 1;
 }
+
+

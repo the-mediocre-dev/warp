@@ -17,17 +17,113 @@
 #include "if-tests.h"
 #include "test-common.h"
 
-void test_if(struct wrp_vm *vm, const char *dir, uint8_t *path_buf, size_t path_buf_sz)
+bool if_empty_test_01(struct wrp_vm *vm)
 {
-    WRP_ASSERT(make_path(dir, "if.wasm", path_buf, path_buf_sz), "failed to make path to 'if.wasm'");
+    wrp_reset_vm(vm);
 
-    uint8_t *buf = NULL;
-    size_t buf_sz = 0;
-    WRP_ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load 'if.wasm'");
+    uint32_t func_idx = 0;
+    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
+        return false;
+    }
 
-    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
-    WRP_ASSERT(mdle, "failed to instantiate 'if.wasm'");
-    WRP_ASSERT(wrp_attach_mdle(vm, mdle), "failed to attach module 'if.wasm'");
+    if(!wrp_push_i32(vm, 0)){
+        return false;
+    }
 
-    wrp_destroy_mdle(vm, mdle);
+    if(!wrp_call(vm, func_idx)){
+        return false;
+    }
+
+    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
+        return false;
+    }
+
+    return true;
+}
+
+bool if_empty_test_02(struct wrp_vm *vm)
+{
+    wrp_reset_vm(vm);
+
+    uint32_t func_idx = 0;
+    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
+        return false;
+    }
+
+    if(!wrp_push_i32(vm, 1)){
+        return false;
+    }
+
+    if(!wrp_call(vm, func_idx)){
+        return false;
+    }
+
+    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
+        return false;
+    }
+
+    return true;
+}
+
+bool if_empty_test_03(struct wrp_vm *vm)
+{
+    wrp_reset_vm(vm);
+
+    uint32_t func_idx = 0;
+    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
+        return false;
+    }
+
+    if(!wrp_push_i32(vm, 100)){
+        return false;
+    }
+
+    if(!wrp_call(vm, func_idx)){
+        return false;
+    }
+
+    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
+        return false;
+    }
+
+    return true;
+}
+
+bool if_empty_test_04(struct wrp_vm *vm)
+{
+    wrp_reset_vm(vm);
+
+    uint32_t func_idx = 0;
+    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
+        return false;
+    }
+
+    if(!wrp_push_i32(vm, -2)){
+        return false;
+    }
+
+    if(!wrp_call(vm, func_idx)){
+        return false;
+    }
+
+    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
+        return false;
+    }
+
+    return true;
+}
+
+void run_if_tests(struct wrp_vm *vm,
+    const char *dir,
+    uint8_t *path_buf,
+    size_t path_buf_sz,
+    uint32_t *passed,
+    uint32_t *failed)
+{
+    WRP_START_TESTS(vm, dir, path_buf, path_buf_sz, "if.wasm");
+    WRP_RUN_TEST(vm, if_empty_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_empty_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_empty_test_03, *passed, *failed);
+    WRP_RUN_TEST(vm, if_empty_test_04, *passed, *failed);
+    WRP_END_TESTS(vm);
 }
