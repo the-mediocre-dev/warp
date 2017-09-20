@@ -18,4 +18,7 @@ before_build:
 
 # Build steps
 build_script:
-  - ninja
+  - ninja -f .\build-scripts\win.ninja
+
+test_script:
+  - C:\projects\warp\bin\warp-spec-tests.exe C:\projects\warp\spec\

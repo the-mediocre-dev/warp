@@ -12,4 +12,6 @@ before_install:
 
 # Build steps
 script:
-  - ninja
+  - ninja -f ./build-scripts/nix.ninja
+  - ./bin/warp-spec-tests.exe ./spec/
+
