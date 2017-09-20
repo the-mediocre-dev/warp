@@ -45,7 +45,7 @@ static uint32_t read_LEB(uint8_t *buf,
 
         num_bytes += 1;
 
-        if (*pos + num_bytes >= buf_sz){
+        if (*pos + num_bytes > buf_sz){
             return WRP_ERR_INVALID_BUFFER_ACCESS;
         }
 
@@ -91,7 +91,7 @@ uint32_t wrp_skip(uint8_t *buf, size_t buf_sz, size_t *pos, size_t num_bytes)
 
 uint32_t wrp_read_uint8(uint8_t *buf, size_t buf_sz, size_t *pos, uint8_t *value)
 {
-    if (*pos + sizeof(uint8_t) >= buf_sz) {
+    if (*pos + sizeof(uint8_t) > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }
 
@@ -101,7 +101,7 @@ uint32_t wrp_read_uint8(uint8_t *buf, size_t buf_sz, size_t *pos, uint8_t *value
 
 uint32_t wrp_read_uint32(uint8_t *buf, size_t buf_sz, size_t *pos, uint32_t *value)
 {
-    if (*pos + sizeof(uint32_t) >= buf_sz) {
+    if (*pos + sizeof(uint32_t) > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }
 
@@ -168,7 +168,7 @@ uint32_t wrp_read_vari64(uint8_t *buf, size_t buf_sz, size_t *pos, int64_t *valu
 
 uint32_t wrp_read_f32(uint8_t *buf, size_t buf_sz, size_t *pos, float *value)
 {
-    if (*pos + sizeof(float) >= buf_sz) {
+    if (*pos + sizeof(float) > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }
 
@@ -181,7 +181,7 @@ uint32_t wrp_read_f32(uint8_t *buf, size_t buf_sz, size_t *pos, float *value)
 
 uint32_t wrp_read_f64(uint8_t *buf, size_t buf_sz, size_t *pos, double *value)
 {
-    if (*pos + sizeof(double) >= buf_sz) {
+    if (*pos + sizeof(double) > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }
 
