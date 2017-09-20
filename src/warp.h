@@ -45,10 +45,10 @@ struct wrp_vm {
     wrp_alloc_fn alloc_fn;
     wrp_free_fn free_fn;
     uint64_t operand_stk_values[WRP_OPERAND_STK_SZ];
-    uint8_t operand_stk_types[WRP_OPERAND_STK_SZ];
+    int8_t operand_stk_types[WRP_OPERAND_STK_SZ];
     int32_t operand_stk_head;
-    uint32_t block_stk_types[WRP_BLOCK_STK_SZ];
-    uint32_t block_stk_labels[WRP_BLOCK_STK_SZ];
+    size_t block_stk_labels[WRP_BLOCK_STK_SZ];
+    int8_t block_stk_types[WRP_BLOCK_STK_SZ];
     int32_t block_stk_head;
     uint32_t call_stk_func_idx[WRP_CALL_STK_SZ];
     int32_t call_stk_operand_ptrs[WRP_CALL_STK_SZ];

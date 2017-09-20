@@ -43,8 +43,15 @@ size_t wrp_mdle_sz(struct wrp_wasm_meta *meta)
     mdle_sz += WRP_ALIGN_64(meta->code_body_sz * sizeof(uint8_t));
     mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
     mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(size_t *));
-    mdle_sz += WRP_ALIGN_64(meta->num_blocks * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_blocks * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
     return mdle_sz;
 }
 
@@ -110,14 +117,35 @@ void wrp_mdle_init(struct wrp_wasm_mdle *mdle, struct wrp_wasm_meta *meta)
     mdle->code_bodies_sz = (size_t *)(ptr + offset);
     offset += WRP_ALIGN_64(meta->num_funcs * sizeof(size_t));
 
-    mdle->blocks = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_blocks * sizeof(size_t));
+    mdle->block_addresses = (size_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
 
     mdle->block_labels = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_blocks * sizeof(size_t));
+    offset += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
+
+    mdle->block_offsets = (uint32_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle->block_counts = (uint32_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle->if_addresses = (size_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    mdle->else_addresses = (size_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    mdle->if_labels = (size_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    mdle->if_offsets = (uint32_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle->if_counts = (uint32_t *)(ptr + offset);
+    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 }
 
-bool wrp_is_valid_wasm_type(uint8_t type)
+bool wrp_is_valid_wasm_type(int8_t type)
 {
     switch (type) {
     case I32:
@@ -134,7 +162,7 @@ bool wrp_is_valid_wasm_type(uint8_t type)
     }
 }
 
-bool wrp_is_valid_block_type(uint8_t type)
+bool wrp_is_valid_block_type(int8_t type)
 {
     switch (type) {
     case I32:
@@ -149,7 +177,7 @@ bool wrp_is_valid_block_type(uint8_t type)
     }
 }
 
-bool wrp_is_valid_value_type(uint8_t type)
+bool wrp_is_valid_value_type(int8_t type)
 {
     switch (type) {
     case I32:
@@ -163,7 +191,37 @@ bool wrp_is_valid_value_type(uint8_t type)
     }
 }
 
-bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
+uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
+    uint32_t func_idx,
+    size_t block_address,
+    uint32_t *block_idx)
+{
+    for (uint32_t i = 0; i < mdle->block_counts[func_idx]; i++) {
+        if (mdle->block_addresses[i + mdle->block_offsets[func_idx]] == block_address) {
+            *block_idx = i;
+            return WRP_SUCCESS;
+        }
+    }
+
+    return WRP_ERR_UNKNOWN_BLOCK;
+}
+
+uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
+    uint32_t func_idx,
+    size_t if_address,
+    uint32_t *if_idx)
+{
+    for (uint32_t i = 0; i < mdle->if_counts[func_idx]; i++) {
+        if (mdle->if_addresses[i + mdle->if_offsets[func_idx]] == if_address) {
+            *if_idx = i;
+            return WRP_SUCCESS;
+        }
+    }
+
+    return WRP_ERR_UNKNOWN_IF;
+}
+
+uint32_t wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     const char *func_name,
     uint32_t *func_idx)
 {
@@ -172,11 +230,11 @@ bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
 
         if (strcmp(name, func_name) == 0) {
             *func_idx = mdle->export_func_idxs[i];
-            return true;
+            return WRP_SUCCESS;
         }
     }
 
-    return false;
+    return WRP_ERR_UNKNOWN_FUNC;
 }
 
 uint32_t wrp_check_immediates(uint8_t opcode,
@@ -189,6 +247,7 @@ uint32_t wrp_check_immediates(uint8_t opcode,
         int8_t block_type = 0;
         WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
 
+        //only void block supported in WASM v1
         if (!wrp_is_valid_block_type(block_type)) {
             return WRP_ERR_INVALID_BLOCK_TYPE;
         }

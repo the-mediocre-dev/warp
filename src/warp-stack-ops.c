@@ -31,7 +31,7 @@ static uint32_t operand_count(struct wrp_vm *vm)
     return count;
 }
 
-uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, uint8_t type)
+uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, int8_t type)
 {
     if (vm->operand_stk_head >= WRP_OPERAND_STK_SZ - 1) {
         return WRP_ERR_OP_STK_OVERFLOW;
@@ -43,7 +43,7 @@ uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, uint8_t type)
     return WRP_SUCCESS;
 }
 
-uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, uint8_t type)
+uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, int8_t type)
 {
     if (vm->operand_stk_head == -1 || vm->operand_stk_types[vm->operand_stk_head] != type) {
         return WRP_ERR_OP_STK_UNDERFLOW;
@@ -54,12 +54,12 @@ uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, uint8_t type)
     return WRP_SUCCESS;
 }
 
-uint32_t wrp_push_block()
+uint32_t wrp_push_block(struct wrp_vm *vm, size_t label, int8_t type)
 {
     return WRP_SUCCESS;
 }
 
-uint32_t wrp_pop_block()
+uint32_t wrp_pop_block(struct wrp_vm *vm)
 {
     return WRP_SUCCESS;
 }

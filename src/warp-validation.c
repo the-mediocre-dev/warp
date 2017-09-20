@@ -77,8 +77,8 @@ static uint32_t validate_type_section(uint8_t *buf,
         meta->num_type_params += num_params;
 
         for (uint32_t j = 0; j < num_params; j++) {
-            uint8_t value_type = 0;
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, pos, &value_type));
+            int8_t value_type = 0;
+            WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &value_type));
 
             if (!wrp_is_valid_value_type(value_type)) {
                 return WRP_ERR_INVALID_TYPE;
@@ -95,8 +95,8 @@ static uint32_t validate_type_section(uint8_t *buf,
         meta->num_type_returns += num_results;
 
         for (uint8_t j = 0; j < num_results; j++) {
-            uint8_t value_type = 0;
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, pos, &value_type));
+            int8_t value_type = 0;
+            WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &value_type));
 
             if (!wrp_is_valid_value_type(value_type)) {
                 return WRP_ERR_INVALID_TYPE;
@@ -205,8 +205,8 @@ static uint32_t validate_global_section(uint8_t *buf,
     for (uint32_t i = 0; i < meta->num_globals; i++) {
         meta->globals[i] = *pos;
 
-        uint8_t value_type = 0;
-        WRP_CHECK(wrp_read_varui7(buf, buf_sz, pos, &value_type));
+        int8_t value_type = 0;
+        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &value_type));
 
         if (!wrp_is_valid_value_type(value_type)) {
             return WRP_ERR_INVALID_TYPE;
@@ -298,9 +298,12 @@ static uint32_t validate_code_section(uint8_t *buf,
         return WRP_ERR_MDLE_CODE_MISMATCH;
     }
 
+    //TODO dynamically allocate? may be too much for the stack...
+    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {};
+    int32_t block_type_stk_head = -1;
+
     for (uint32_t i = 0; i < meta->num_funcs; i++) {
         meta->codes[i] = *pos;
-
         uint32_t body_sz;
         WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &body_sz));
 
@@ -312,8 +315,8 @@ static uint32_t validate_code_section(uint8_t *buf,
             uint32_t num_locals = 0;
             WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &num_locals));
 
-            uint8_t value_type = 0;
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, pos, &value_type));
+            int8_t value_type = 0;
+            WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &value_type));
 
             if (!wrp_is_valid_value_type(value_type)) {
                 return WRP_ERR_INVALID_TYPE;
@@ -326,24 +329,58 @@ static uint32_t validate_code_section(uint8_t *buf,
             return WRP_ERR_MDLE_LOCALS_OVERFLOW;
         }
 
-        size_t code_sz = body_sz - (*pos - meta->codes[i]);
-        uint32_t num_blocks = 0;
+        //push the implicit func block
+        block_type_stk[0] = BLOCK_FUNC;
+        block_type_stk_head = 0;
+
+        size_t code_sz = body_sz - (*pos - meta->codes[i]) + 1;
+        size_t end_pos = *pos + code_sz - 1;
+        uint32_t num_blocks = 1;
         uint32_t num_ends = 0;
-        size_t end_pos = *pos + code_sz;
 
         meta->num_code_locals += total_locals;
         meta->code_body_sz += code_sz;
 
+        uint8_t opcode = 0;
+
         while (*pos <= end_pos) {
-            uint8_t opcode = 0;
             WRP_CHECK(wrp_read_uint8(buf, buf_sz, pos, &opcode));
             WRP_CHECK(wrp_check_immediates(opcode, buf, buf_sz, pos, meta));
 
-            if (opcode == OP_BLOCK || opcode == OP_IF || opcode == OP_ELSE || opcode == OP_LOOP) {
+            if (opcode == OP_BLOCK || opcode == OP_IF || opcode == OP_LOOP) {
+                if (block_type_stk_head >= MAX_BLOCK_DEPTH) {
+                    return WRP_ERR_MDLE_BLOCK_OVERFLOW;
+                }
+
+                if (opcode == OP_BLOCK) {
+                    block_type_stk[block_type_stk_head++] = BLOCK;
+                    meta->num_block_ops++;
+                }
+
+                if (opcode == OP_IF) {
+                    block_type_stk[block_type_stk_head++] = BLOCK_IF;
+                    meta->num_if_ops++;
+                }
+
+                if (opcode == OP_LOOP) {
+                    block_type_stk[block_type_stk_head++] = BLOCK_LOOP;
+                }
+
                 num_blocks++;
             }
 
+            if (opcode == OP_ELSE) {
+                if (block_type_stk_head == 0 || block_type_stk[block_type_stk_head - 1] != BLOCK_IF) {
+                    return WRP_ERR_MDLE_IF_ELSE_MISMATCH;
+                }
+            }
+
             if (opcode == OP_END) {
+                if (block_type_stk_head < 0) {
+                    return WRP_ERR_MDLE_BLOCK_UNDERFLOW;
+                }
+
+                block_type_stk_head--;
                 num_ends++;
             }
 
@@ -352,11 +389,9 @@ static uint32_t validate_code_section(uint8_t *buf,
             }
         }
 
-        if (num_ends != num_blocks + 1) {
+        if (num_ends != num_blocks || block_type_stk_head != -1) {
             return WPR_ERR_MDLE_BLOCK_END_MISMATCH;
         }
-
-        meta->num_blocks += num_blocks;
     }
 
     return WRP_SUCCESS;

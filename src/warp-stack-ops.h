@@ -20,11 +20,11 @@
 
 struct wrp_vm;
 
-uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, uint8_t type);
+uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, int8_t type);
 
-uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, uint8_t type);
+uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, int8_t type);
 
-uint32_t wrp_push_block(struct wrp_vm *vm);
+uint32_t wrp_push_block(struct wrp_vm *vm, size_t label, int8_t type);
 
 uint32_t wrp_pop_block(struct wrp_vm *vm);
 

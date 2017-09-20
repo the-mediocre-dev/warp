@@ -16,13 +16,13 @@
 
 #include <stddef.h>
 
-#include "warp-execution.h"
 #include "warp-buf.h"
 #include "warp-error.h"
+#include "warp-execution.h"
 #include "warp-macros.h"
 #include "warp-stack-ops.h"
-#include "warp.h"
 #include "warp-wasm.h"
+#include "warp.h"
 
 static uint32_t exec_invalid_op(struct wrp_vm *vm)
 {
@@ -51,12 +51,43 @@ static uint32_t exec_loop_op(struct wrp_vm *vm)
 
 static uint32_t exec_if_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    size_t if_address = vm->program_counter++;
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    int8_t block_type = 0;
+    WRP_CHECK(wrp_read_vari7(code_body, code_body_sz, &vm->program_counter, &block_type));
+
+    if (!wrp_is_valid_block_type(block_type)) {
+        return WRP_ERR_INVALID_BLOCK_TYPE;
+    }
+
+    uint32_t if_idx = 0;
+    WRP_CHECK(wrp_get_if_idx(vm->mdle, func_idx, if_address, &if_idx));
+
+    uint64_t condition = 0;
+    WRP_CHECK(wrp_pop_operand(vm, &condition, I32));
+
+    if (((uint32_t)condition) != 0 || vm->mdle->else_addresses[if_idx] != 0) {
+        WRP_CHECK(wrp_push_block(vm, vm->mdle->if_labels[if_idx], block_type));
+    }
+
+    if (((uint32_t)condition) == 0 && vm->mdle->else_addresses[if_idx] == 0) {
+        vm->program_counter = vm->mdle->if_labels[if_idx];
+    }
+
+    if (((uint32_t)condition) == 0 && vm->mdle->else_addresses[if_idx] != 0) {
+        vm->program_counter = vm->mdle->else_addresses[if_idx] + 1;
+    }
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_else_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    vm->program_counter = vm->block_stk_labels[vm->block_stk_head];
+    WRP_CHECK(wrp_pop_block(vm));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_end_op(struct wrp_vm *vm)
@@ -112,6 +143,8 @@ static uint32_t exec_select_op(struct wrp_vm *vm)
 
 static uint32_t exec_get_local_op(struct wrp_vm *vm)
 {
+    vm->program_counter++;
+
     uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
     uint8_t *code_body = vm->mdle->code_bodies[func_idx];
     size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
@@ -499,6 +532,8 @@ static uint32_t exec_i32_sub_op(struct wrp_vm *vm)
 
 static uint32_t exec_i32_mul_op(struct wrp_vm *vm)
 {
+    vm->program_counter++;
+
     uint64_t y = 0;
     WRP_CHECK(wrp_pop_operand(vm, &y, I32));
 
@@ -927,7 +962,7 @@ static uint32_t exec_f64_reinterpret_i64_op(struct wrp_vm *vm)
 }
 
 static uint32_t (*const exec_jump_table[])(struct wrp_vm *vm) = {
-    [OP_UNREACHABLE] = exec_unreachable_op,
+        [OP_UNREACHABLE] = exec_unreachable_op,
     [OP_NOOP] = exec_no_op,
     [OP_BLOCK] = exec_block_op,
     [OP_LOOP] = exec_loop_op,
@@ -1118,8 +1153,7 @@ static uint32_t (*const exec_jump_table[])(struct wrp_vm *vm) = {
     [OP_I32_REINTERPRET_F32] = exec_i32_reinterpret_f32_op,
     [OP_I64_REINTERPRET_F64] = exec_i64_reinterpret_f64_op,
     [OP_F32_REINTERPRET_I32] = exec_f32_reinterpret_i32_op,
-    [OP_F64_REINTERPRET_I64] = exec_f64_reinterpret_i64_op
-};
+    [OP_F64_REINTERPRET_I64] = exec_f64_reinterpret_i64_op};
 
 uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx)
 {
@@ -1135,8 +1169,6 @@ uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx)
         if (opcode >= NUM_OPCODES) {
             return WRP_ERR_INVALID_OPCODE;
         }
-
-        vm->program_counter++;
 
         uint32_t err = exec_jump_table[opcode](vm);
 

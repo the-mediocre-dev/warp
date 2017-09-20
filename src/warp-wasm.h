@@ -289,7 +289,8 @@ struct wrp_wasm_meta {
     size_t codes[MAX_FUNCS];
     uint32_t num_code_locals;
     size_t code_body_sz;
-    uint32_t num_blocks;
+    uint32_t num_block_ops;
+    uint32_t num_if_ops;
 };
 
 struct wrp_wasm_mdle {
@@ -320,22 +321,38 @@ struct wrp_wasm_mdle {
     uint8_t *code;
     uint8_t **code_bodies;
     size_t *code_bodies_sz;
-    size_t *blocks;
+    size_t *block_addresses;
     size_t *block_labels;
-    uint32_t num_blocks;
+    uint32_t *block_offsets;
+    uint32_t *block_counts;
+    size_t *if_addresses;
+    size_t *else_addresses;
+    size_t *if_labels;
+    uint32_t *if_offsets;
+    uint32_t *if_counts;
 };
 
 size_t wrp_mdle_sz(struct wrp_wasm_meta *meta);
 
 void wrp_mdle_init(struct wrp_wasm_mdle *mdle, struct wrp_wasm_meta *meta);
 
-bool wrp_is_valid_wasm_type(uint8_t type);
+bool wrp_is_valid_wasm_type(int8_t type);
 
-bool wrp_is_valid_block_type(uint8_t type);
+bool wrp_is_valid_block_type(int8_t type);
 
-bool wrp_is_valid_value_type(uint8_t type);
+bool wrp_is_valid_value_type(int8_t type);
 
-bool wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
+uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
+    uint32_t func_idx,
+    size_t block_address,
+    uint32_t *block_idx);
+
+uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
+    uint32_t func_idx,
+    size_t if_address,
+    uint32_t *if_idx);
+
+uint32_t wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     const char *func_name,
     uint32_t *func_idx);
 

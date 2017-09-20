@@ -38,8 +38,7 @@ static uint32_t load_types(uint8_t *buf,
         mdle->param_type_offsets[i] = current_param;
 
         for (uint32_t j = 0; j < mdle->param_counts[i]; j++) {
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->param_types[current_param]));
-            current_param++;
+            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->param_types[current_param++]));
         }
 
         WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->result_counts[i]));
@@ -47,8 +46,7 @@ static uint32_t load_types(uint8_t *buf,
         mdle->result_type_offsets[i] = current_result;
 
         for (uint32_t j = 0; j < mdle->result_counts[i]; j++) {
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->result_types[current_result]));
-            current_result++;
+            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->result_types[current_result++]));
         }
     }
 
@@ -177,7 +175,7 @@ static uint32_t load_code(uint8_t *buf,
     struct wrp_wasm_mdle *mdle)
 {
     uint32_t current_local = 0;
-    uint8_t code_pos = 0;
+    uint32_t code_pos = 0;
 
     for (uint32_t i = 0; i < meta->num_funcs; i++) {
         size_t pos = 0;
@@ -206,14 +204,13 @@ static uint32_t load_code(uint8_t *buf,
         }
 
         mdle->code_bodies[i] = &mdle->code[code_pos];
-        mdle->code_bodies_sz[i] = body_sz - (pos - meta->codes[i]);
+        mdle->code_bodies_sz[i] = body_sz - (pos - meta->codes[i]) + 1;
 
-        size_t end_pos = pos + mdle->code_bodies_sz[i];
+        size_t end_pos = pos + mdle->code_bodies_sz[i] - 1;
 
         //TODO load blocks and copy code in one pass
         while (pos <= end_pos) {
-            WRP_CHECK(wrp_read_uint8(buf, buf_sz, &pos, &mdle->code[code_pos]));
-            code_pos++;
+            WRP_CHECK(wrp_read_uint8(buf, buf_sz, &pos, &mdle->code[code_pos++]));
         }
     }
 
@@ -230,44 +227,67 @@ static uint32_t load_data(uint8_t *buf,
 
 static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdle)
 {
-    mdle->num_blocks = meta->num_blocks;
-
-    if (mdle->num_blocks == 0) {
+    if (meta->num_block_ops == 0 && meta->num_if_ops == 0) {
         return WRP_SUCCESS;
     }
 
-    uint32_t idx_stk[MAX_BLOCK_DEPTH] = {};
-    int32_t idx_stk_head = -1;
-    uint32_t current_block = 0;
+    //TODO dynamically allocate? may be too much for the stack...
+    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {};
+    int32_t block_type_stk_head = -1;
+
+    uint32_t block_op_idx_stk[MAX_BLOCK_DEPTH] = {};
+    int32_t block_op_stk_head = -1;
+    uint32_t current_block_op_idx = 0;
+
+    uint32_t if_op_idx_stk[MAX_BLOCK_DEPTH] = {};
+    int32_t if_op_stk_head = -1;
+    uint32_t current_if_op_idx = 0;
 
     for (uint32_t i = 0; i < meta->num_funcs; i++) {
         size_t pos = 0;
-        size_t end_pos = pos + mdle->code_bodies_sz[i];
+        size_t end_pos = pos + mdle->code_bodies_sz[i] - 1;
 
+        if_op_stk_head = -1;
+        mdle->if_offsets[i] = current_if_op_idx;
+        mdle->if_counts[i] = 0;
+
+        block_op_stk_head = -1;
+        mdle->block_offsets[i] = current_block_op_idx;
+        mdle->block_counts[i] = 0;
+
+        // //skip func end opcode as it doesnt have a corresponding control opcode
         while (pos < end_pos) {
             uint8_t opcode = 0;
+            size_t opcode_pos = pos;
             WRP_CHECK(wrp_read_uint8(mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, &opcode));
-
-            if (opcode == OP_BLOCK || opcode == OP_IF || opcode == OP_ELSE || opcode == OP_LOOP) {
-                if (idx_stk_head >= MAX_BLOCK_DEPTH) {
-                    return false;
-                }
-
-                idx_stk[++idx_stk_head] = current_block;
-                mdle->blocks[current_block] = pos - 1;
-                current_block++;
-            }
-
-            if (opcode == OP_END) {
-                if (idx_stk_head < 0) {
-                    return false;
-                }
-
-                uint32_t block_idx = idx_stk[idx_stk_head--];
-                mdle->block_labels[block_idx] = pos - 1;
-            }
-
             WRP_CHECK(wrp_check_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, meta));
+
+            if (opcode == OP_BLOCK) {
+                block_type_stk[++block_type_stk_head] = BLOCK;
+                block_op_idx_stk[++block_op_stk_head] = current_block_op_idx;
+                mdle->block_addresses[current_block_op_idx++] = opcode_pos;
+                mdle->block_counts[i]++;
+            } else if (opcode == OP_IF) {
+                block_type_stk[++block_type_stk_head] = BLOCK_IF;
+                if_op_idx_stk[++if_op_stk_head] = current_if_op_idx;
+                mdle->if_addresses[current_if_op_idx++] = opcode_pos;
+                mdle->if_counts[i]++;
+            } else if (opcode == OP_LOOP) {
+                block_type_stk[++block_type_stk_head] = BLOCK_LOOP;
+            } else if (opcode == OP_ELSE) {
+                uint32_t if_op_idx = if_op_idx_stk[if_op_stk_head];
+                mdle->else_addresses[if_op_idx] = opcode_pos;
+            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK) {
+                block_type_stk_head--;
+                uint32_t block_op_idx = block_op_idx_stk[block_op_stk_head--];
+                mdle->block_labels[block_op_idx] = opcode_pos + 1;
+            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_IF) {
+                block_type_stk_head--;
+                uint32_t if_op_idx = if_op_idx_stk[if_op_stk_head--];
+                mdle->if_labels[if_op_idx] = opcode_pos + 1;
+            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_LOOP) {
+                block_type_stk_head--;
+            }
         }
     }
 

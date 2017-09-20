@@ -51,7 +51,7 @@ struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
     size_t buf_sz)
 {
     //TODO dynamically allocate? May be too large for stack...
-    struct wrp_wasm_meta meta = {};
+    struct wrp_wasm_meta meta = {0};
 
     uint32_t error = wrp_validate_mdle(buf, buf_sz, &meta);
 
