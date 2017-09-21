@@ -54,7 +54,7 @@ static uint32_t read_LEB(uint8_t *buf,
         }
     }
 
-    if (sign_extend && (shift < max_bytes) && (byte & 0x40)) {
+    if (sign_extend && (shift < max_bits) && (byte & 0x40)) {
         result |= -(1 << shift);
     }
 
