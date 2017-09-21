@@ -198,7 +198,7 @@ uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
 {
     for (uint32_t i = 0; i < mdle->block_counts[func_idx]; i++) {
         if (mdle->block_addresses[i + mdle->block_offsets[func_idx]] == block_address) {
-            *block_idx = i;
+            *block_idx = i + mdle->block_offsets[func_idx];
             return WRP_SUCCESS;
         }
     }
@@ -213,7 +213,7 @@ uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
 {
     for (uint32_t i = 0; i < mdle->if_counts[func_idx]; i++) {
         if (mdle->if_addresses[i + mdle->if_offsets[func_idx]] == if_address) {
-            *if_idx = i;
+            *if_idx = i + mdle->if_offsets[func_idx];
             return WRP_SUCCESS;
         }
     }
