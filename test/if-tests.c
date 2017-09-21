@@ -16,102 +16,288 @@
 
 #include "if-tests.h"
 #include "test-common.h"
+#include "test-builder.h"
 
-bool if_empty_test_01(struct wrp_vm *vm)
-{
-    wrp_reset_vm(vm);
+/* empty test 01 */
+START_TEST(vm, if_empty_test_01)
+PUSH_I32(vm, 0)
+CALL(vm, "empty")
+CHECK_STK_EMPTY(vm)
+END_TEST()
 
-    uint32_t func_idx = 0;
-    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
-        return false;
-    }
+/* empty test 02 */
+START_TEST(vm, if_empty_test_02)
+PUSH_I32(vm, 1)
+CALL(vm, "empty")
+CHECK_STK_EMPTY(vm)
+END_TEST()
 
-    if(!wrp_push_i32(vm, 0)){
-        return false;
-    }
+/* empty test 03 */
+START_TEST(vm, if_empty_test_03)
+PUSH_I32(vm, 100)
+CALL(vm, "empty")
+CHECK_STK_EMPTY(vm)
+END_TEST()
 
-    if(!wrp_call(vm, func_idx)){
-        return false;
-    }
+/* empty test 04 */
+START_TEST(vm, if_empty_test_04)
+PUSH_I32(vm, -2)
+CALL(vm, "empty")
+CHECK_STK_EMPTY(vm)
+END_TEST()
 
-    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
-        return false;
-    }
+/* singular test 01 */
+START_TEST(vm, if_singular_test_01)
+PUSH_I32(vm, 0)
+CALL(vm, "singular")
+CHECK_I32(vm, 8)
+END_TEST()
 
-    return true;
-}
+/* singular test 02 */
+START_TEST(vm, if_singular_test_02)
+PUSH_I32(vm, 1)
+CALL(vm, "singular")
+CHECK_I32(vm, 7)
+END_TEST()
 
-bool if_empty_test_02(struct wrp_vm *vm)
-{
-    wrp_reset_vm(vm);
+/* singular test 03 */
+START_TEST(vm, if_singular_test_03)
+PUSH_I32(vm, 10)
+CALL(vm, "singular")
+CHECK_I32(vm, 7)
+END_TEST()
 
-    uint32_t func_idx = 0;
-    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
-        return false;
-    }
+/* singular test 04 */
+START_TEST(vm, if_singular_test_04)
+PUSH_I32(vm, -10)
+CALL(vm, "singular")
+CHECK_I32(vm, 7)
+END_TEST()
 
-    if(!wrp_push_i32(vm, 1)){
-        return false;
-    }
+/* multi test 01 */
+START_TEST(vm, if_multi_test_01)
+PUSH_I32(vm, 0)
+CALL(vm, "multi")
+CHECK_I32(vm, 9)
+END_TEST()
 
-    if(!wrp_call(vm, func_idx)){
-        return false;
-    }
+/* multi test 02 */
+START_TEST(vm, if_multi_test_02)
+PUSH_I32(vm, 1)
+CALL(vm, "multi")
+CHECK_I32(vm, 8)
+END_TEST()
 
-    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
-        return false;
-    }
+/* multi test 03 */
+START_TEST(vm, if_multi_test_03)
+PUSH_I32(vm, 13)
+CALL(vm, "multi")
+CHECK_I32(vm, 8)
+END_TEST()
 
-    return true;
-}
+/* multi test 04 */
+START_TEST(vm, if_multi_test_04)
+PUSH_I32(vm, -5)
+CALL(vm, "multi")
+CHECK_I32(vm, 8)
+END_TEST()
 
-bool if_empty_test_03(struct wrp_vm *vm)
-{
-    wrp_reset_vm(vm);
+/* nested test 01 */
+START_TEST(vm, if_nested_test_01)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 0)
+CALL(vm, "nested")
+CHECK_I32(vm, 11)
+END_TEST()
 
-    uint32_t func_idx = 0;
-    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
-        return false;
-    }
+/* nested test 02 */
+START_TEST(vm, if_nested_test_02)
+PUSH_I32(vm, 1)
+PUSH_I32(vm, 0)
+CALL(vm, "nested")
+CHECK_I32(vm, 10)
+END_TEST()
 
-    if(!wrp_push_i32(vm, 100)){
-        return false;
-    }
+/* nested test 03 */
+START_TEST(vm, if_nested_test_03)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 1)
+CALL(vm, "nested")
+CHECK_I32(vm, 10)
+END_TEST()
 
-    if(!wrp_call(vm, func_idx)){
-        return false;
-    }
+/* nested test 04 */
+START_TEST(vm, if_nested_test_04)
+PUSH_I32(vm, 3)
+PUSH_I32(vm, 2)
+CALL(vm, "nested")
+CHECK_I32(vm, 9)
+END_TEST()
 
-    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
-        return false;
-    }
+/* nested test 05 */
+START_TEST(vm, if_nested_test_05)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, -100)
+CALL(vm, "nested")
+CHECK_I32(vm, 10)
+END_TEST()
 
-    return true;
-}
+/* nested test 06 */
+START_TEST(vm, if_nested_test_06)
+PUSH_I32(vm, 10)
+PUSH_I32(vm, 10)
+CALL(vm, "nested")
+CHECK_I32(vm, 9)
+END_TEST()
 
-bool if_empty_test_04(struct wrp_vm *vm)
-{
-    wrp_reset_vm(vm);
+/* nested test 07 */
+START_TEST(vm, if_nested_test_07)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, -1)
+CALL(vm, "nested")
+CHECK_I32(vm, 10)
+END_TEST()
 
-    uint32_t func_idx = 0;
-    if(wrp_get_func_idx(vm->mdle, "empty", &func_idx) != WRP_SUCCESS){
-        return false;
-    }
+/* nested test 08 */
+START_TEST(vm, if_nested_test_08)
+PUSH_I32(vm, -111)
+PUSH_I32(vm, -2)
+CALL(vm, "nested")
+CHECK_I32(vm, 9)
+END_TEST()
 
-    if(!wrp_push_i32(vm, -2)){
-        return false;
-    }
+/* as-unary-operand test 01 */
+START_TEST(vm, if_as_unary_operand_test_01)
+PUSH_I32(vm, 0)
+CALL(vm, "as-unary-operand")
+CHECK_I32(vm, 0)
+END_TEST()
 
-    if(!wrp_call(vm, func_idx)){
-        return false;
-    }
+/* as-unary-operand test 02 */
+START_TEST(vm, if_as_unary_operand_test_02)
+PUSH_I32(vm, 1)
+CALL(vm, "as-unary-operand")
+CHECK_I32(vm, 0)
+END_TEST()
 
-    if(vm->call_stk_head != -1 || vm->operand_stk_head != -1 || vm->block_stk_head != -1){
-        return false;
-    }
+/* as-unary-operand test 03 */
+START_TEST(vm, if_as_unary_operand_test_03)
+PUSH_I32(vm, -1)
+CALL(vm, "as-unary-operand")
+CHECK_I32(vm, 0)
+END_TEST()
 
-    return true;
-}
+/* as-binary-operand test 01 */
+START_TEST(vm, if_as_binary_operand_test_01)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 0)
+CALL(vm, "as-binary-operand")
+CHECK_I32(vm, 15)
+END_TEST()
+
+/* as-binary-operand test 02 */
+START_TEST(vm, if_as_binary_operand_test_02)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 1)
+CALL(vm, "as-binary-operand")
+CHECK_I32(vm, -12)
+END_TEST()
+
+/* as-binary-operand test 03 */
+START_TEST(vm, if_as_binary_operand_test_03)
+PUSH_I32(vm, 1)
+PUSH_I32(vm, 0)
+CALL(vm, "as-binary-operand")
+CHECK_I32(vm, -15)
+END_TEST()
+
+/* as-binary-operand test 04 */
+START_TEST(vm, if_as_binary_operand_test_04)
+PUSH_I32(vm, 1)
+PUSH_I32(vm, 1)
+CALL(vm, "as-binary-operand")
+CHECK_I32(vm, 12)
+END_TEST()
+
+/* as-test-operand test 01 */
+START_TEST(vm, if_as_test_operand_test_01)
+PUSH_I32(vm, 0)
+CALL(vm, "as-test-operand")
+CHECK_I32(vm, 1)
+END_TEST()
+
+/* as-test-operand test 02 */
+START_TEST(vm, if_as_test_operand_test_02)
+PUSH_I32(vm, 1)
+CALL(vm, "as-test-operand")
+CHECK_I32(vm, 0)
+END_TEST()
+
+/* as-compare-operand test 01 */
+START_TEST(vm, if_as_compare_operand_test_01)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 0)
+CALL(vm, "as-compare-operand")
+CHECK_I32(vm, 1)
+END_TEST()
+
+/* as-compare-operand test 02 */
+START_TEST(vm, if_as_compare_operand_test_02)
+PUSH_I32(vm, 0)
+PUSH_I32(vm, 1)
+CALL(vm, "as-compare-operand")
+CHECK_I32(vm, 0)
+END_TEST()
+
+/* as-compare-operand test 03 */
+START_TEST(vm, if_as_compare_operand_test_03)
+PUSH_I32(vm, 1)
+PUSH_I32(vm, 0)
+CALL(vm, "as-compare-operand")
+CHECK_I32(vm, 1)
+END_TEST()
+
+/* as-compare-operand test 04 */
+START_TEST(vm, if_as_compare_operand_test_04)
+PUSH_I32(vm, 1)
+PUSH_I32(vm, 1)
+CALL(vm, "as-compare-operand")
+CHECK_I32(vm, 0)
+END_TEST()
+
+/* break-bare test 01 */
+START_TEST(vm, if_break_bare_test_01)
+CALL(vm, "break-bare")
+CHECK_I32(vm, 19)
+END_TEST()
+
+/* break-value test 01 */
+START_TEST(vm, if_break_value_test_01)
+PUSH_I32(vm, 1)
+CALL(vm, "break-value")
+CHECK_I32(vm, 18)
+END_TEST()
+
+/* break-value test 02 */
+START_TEST(vm, if_break_value_test_02)
+PUSH_I32(vm, 0)
+CALL(vm, "break-value")
+CHECK_I32(vm, 21)
+END_TEST()
+
+/* effects test 01 */
+START_TEST(vm, if_effects_test_01)
+PUSH_I32(vm, 1)
+CALL(vm, "effects")
+CHECK_I32(vm, -14)
+END_TEST()
+
+/* effects test 02 */
+START_TEST(vm, if_effects_test_02)
+PUSH_I32(vm, 0)
+CALL(vm, "effects")
+CHECK_I32(vm, -6)
+END_TEST()
 
 void run_if_tests(struct wrp_vm *vm,
     const char *dir,
@@ -121,9 +307,64 @@ void run_if_tests(struct wrp_vm *vm,
     uint32_t *failed)
 {
     WRP_START_TESTS(vm, dir, path_buf, path_buf_sz, "if.wasm");
+
+    //run empty tests
     WRP_RUN_TEST(vm, if_empty_test_01, *passed, *failed);
     WRP_RUN_TEST(vm, if_empty_test_02, *passed, *failed);
     WRP_RUN_TEST(vm, if_empty_test_03, *passed, *failed);
     WRP_RUN_TEST(vm, if_empty_test_04, *passed, *failed);
+
+    //run singular tests
+    WRP_RUN_TEST(vm, if_singular_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_singular_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_singular_test_03, *passed, *failed);
+    WRP_RUN_TEST(vm, if_singular_test_04, *passed, *failed);
+
+    //run multi tests
+    WRP_RUN_TEST(vm, if_multi_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_multi_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_multi_test_03, *passed, *failed);
+    WRP_RUN_TEST(vm, if_multi_test_04, *passed, *failed);
+
+    //run nested tests
+    WRP_RUN_TEST(vm, if_nested_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_03, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_04, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_05, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_06, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_07, *passed, *failed);
+    WRP_RUN_TEST(vm, if_nested_test_08, *passed, *failed);
+
+    //run as-unary-operand tests
+    WRP_RUN_TEST(vm, if_as_unary_operand_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_unary_operand_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_unary_operand_test_03, *passed, *failed);
+
+    //run as-binary-operand tests
+    WRP_RUN_TEST(vm, if_as_binary_operand_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_binary_operand_test_02, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_binary_operand_test_03, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_binary_operand_test_04, *passed, *failed);
+
+    //run as-test-operand tests
+    WRP_RUN_TEST(vm, if_as_test_operand_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_test_operand_test_02, *passed, *failed);
+
+    //run as-compare-operand tests
+    WRP_RUN_TEST(vm, if_as_compare_operand_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_as_compare_operand_test_02, *passed, *failed);
+
+    //run break-bare tests
+    WRP_RUN_TEST(vm, if_break_bare_test_01, *passed, *failed);
+
+    //run break-value tests
+    WRP_RUN_TEST(vm, if_break_value_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_break_value_test_02, *passed, *failed);
+
+    //run effects tests
+    WRP_RUN_TEST(vm, if_effects_test_01, *passed, *failed);
+    WRP_RUN_TEST(vm, if_effects_test_02, *passed, *failed);
+
     WRP_END_TESTS(vm);
 }
