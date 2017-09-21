@@ -235,7 +235,7 @@ static uint32_t validate_export_section(uint8_t *buf,
         return WRP_ERR_MDLE_EXPORT_OVERFLOW;
     }
 
-    char name[MAX_GLOBAL_NAME_SIZE + 1] = {};
+    char name[MAX_GLOBAL_NAME_SIZE + 1] = {0};
 
     for (uint32_t i = 0; i < meta->num_exports; i++) {
         meta->exports[i] = *pos;
@@ -299,7 +299,7 @@ static uint32_t validate_code_section(uint8_t *buf,
     }
 
     //TODO dynamically allocate? may be too much for the stack...
-    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {};
+    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {0};
     int32_t block_type_stk_head = -1;
 
     for (uint32_t i = 0; i < meta->num_funcs; i++) {

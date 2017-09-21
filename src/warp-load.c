@@ -232,14 +232,14 @@ static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdl
     }
 
     //TODO dynamically allocate? may be too much for the stack...
-    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {};
+    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {0};
     int32_t block_type_stk_head = -1;
 
-    uint32_t block_op_idx_stk[MAX_BLOCK_DEPTH] = {};
+    uint32_t block_op_idx_stk[MAX_BLOCK_DEPTH] = {0};
     int32_t block_op_stk_head = -1;
     uint32_t current_block_op_idx = 0;
 
-    uint32_t if_op_idx_stk[MAX_BLOCK_DEPTH] = {};
+    uint32_t if_op_idx_stk[MAX_BLOCK_DEPTH] = {0};
     int32_t if_op_stk_head = -1;
     uint32_t current_if_op_idx = 0;
 
