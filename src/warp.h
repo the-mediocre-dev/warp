@@ -72,22 +72,6 @@ bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
 
 bool wrp_detach_mdle(struct wrp_vm *vm);
 
-bool wrp_push_i32(struct wrp_vm *vm, int32_t value);
-
-bool wrp_push_i64(struct wrp_vm *vm, int64_t value);
-
-bool wrp_push_f32(struct wrp_vm *vm, float value);
-
-bool wrp_push_f64(struct wrp_vm *vm, double value);
-
-bool wrp_pop_i32(struct wrp_vm *vm, int32_t *value);
-
-bool wrp_pop_i64(struct wrp_vm *vm, int64_t *value);
-
-bool wrp_pop_f32(struct wrp_vm *vm, float *value);
-
-bool wrp_pop_f64(struct wrp_vm *vm, double *value);
-
 bool wrp_start(struct wrp_vm *vm);
 
 bool wrp_call(struct wrp_vm *vm, uint32_t func_idx);

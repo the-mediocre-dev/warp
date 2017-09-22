@@ -64,7 +64,6 @@ static uint32_t read_LEB(uint8_t *buf,
 
 uint32_t wrp_seek(uint8_t *buf, size_t buf_sz, size_t *pos, size_t new_pos)
 {
-    //(pos == buf_sz) indicates end of stream.
     if (new_pos > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }
@@ -75,12 +74,12 @@ uint32_t wrp_seek(uint8_t *buf, size_t buf_sz, size_t *pos, size_t new_pos)
 
 uint32_t wrp_end_of_buf(uint8_t *buf, size_t buf_sz, size_t pos)
 {
+    //(pos == buf_sz) indicates end of stream.
     return (pos == buf_sz);
 }
 
 uint32_t wrp_skip(uint8_t *buf, size_t buf_sz, size_t *pos, size_t num_bytes)
 {
-    //(pos == buf_sz) indicates end of stream.
     if (*pos + num_bytes > buf_sz) {
         return WRP_ERR_INVALID_BUFFER_ACCESS;
     }

@@ -326,8 +326,8 @@ struct wrp_wasm_mdle {
     uint32_t *block_offsets;
     uint32_t *block_counts;
     size_t *if_addresses;
-    size_t *else_addresses;
     size_t *if_labels;
+    size_t *else_addresses;
     uint32_t *if_offsets;
     uint32_t *if_counts;
 };

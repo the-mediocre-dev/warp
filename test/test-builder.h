@@ -20,28 +20,28 @@ bool test(struct wrp_vm *vm)    \
 {                               \
     wrp_reset_vm(vm);
 
-#define PUSH_I32(vm, value)         \
-                                    \
-    if (!wrp_push_i32(vm, value)) { \
-        return false;               \
+#define PUSH_I32(vm, value)                       \
+                                                  \
+    if (wrp_push_i32(vm, value) != WRP_SUCCESS) { \
+        return false;                             \
     }
 
-#define PUSH_I64(vm, value)         \
-                                    \
-    if (!wrp_push_i64(vm, value)) { \
-        return false;               \
+#define PUSH_I64(vm, value)                       \
+                                                  \
+    if (wrp_push_i64(vm, value) != WRP_SUCCESS) { \
+        return false;                             \
     }
 
-#define PUSH_F32(vm, value)         \
-                                    \
-    if (!wrp_push_f32(vm, value)) { \
-        return false;               \
+#define PUSH_F32(vm, value)                       \
+                                                  \
+    if (wrp_push_f32(vm, value) != WRP_SUCCESS) { \
+        return false;                             \
     }
 
-#define PUSH_F64(vm, value)         \
-                                    \
-    if (!wrp_push_f64(vm, value)) { \
-        return false;               \
+#define PUSH_F64(vm, value)                       \
+                                                  \
+    if (wrp_push_f64(vm, value) != WRP_SUCCESS) { \
+        return false;                             \
     }
 
 #define CALL(vm, func)                                                    \
@@ -70,52 +70,52 @@ bool test(struct wrp_vm *vm)    \
         return false;                 \
     }
 
-#define CHECK_I32(vm, value)             \
-    {                                    \
-        int32_t result = 0;              \
-        if (!wrp_pop_i32(vm, &result)) { \
-            return false;                \
-        }                                \
-                                         \
-        if (result != value) {           \
-            return false;                \
-        }                                \
+#define CHECK_I32(vm, value)                           \
+    {                                                  \
+        int32_t result = 0;                            \
+        if (wrp_pop_i32(vm, &result) != WRP_SUCCESS) { \
+            return false;                              \
+        }                                              \
+                                                       \
+        if (result != value) {                         \
+            return false;                              \
+        }                                              \
     }
 
-#define CHECK_I64(vm, value)             \
-    {                                    \
-        int64_t result = 0;              \
-        if (!wrp_pop_i64(vm, &result)) { \
-            return false;                \
-        }                                \
-                                         \
-        if (result != value) {           \
-            return false;                \
-        }                                \
+#define CHECK_I64(vm, value)                           \
+    {                                                  \
+        int64_t result = 0;                            \
+        if (wrp_pop_i64(vm, &result) != WRP_SUCCESS) { \
+            return false;                              \
+        }                                              \
+                                                       \
+        if (result != value) {                         \
+            return false;                              \
+        }                                              \
     }
 
-#define CHECK_F32(vm, value)             \
-    {                                    \
-        float result = 0;                \
-        if (!wrp_pop_f32(vm, &result)) { \
-            return false;                \
-        }                                \
-                                         \
-        if (result != value) {           \
-            return false;                \
-        }                                \
+#define CHECK_F32(vm, value)                           \
+    {                                                  \
+        float result = 0;                              \
+        if (wrp_pop_f32(vm, &result) != WRP_SUCCESS) { \
+            return false;                              \
+        }                                              \
+                                                       \
+        if (result != value) {                         \
+            return false;                              \
+        }                                              \
     }
 
-#define CHECK_F64(vm, value)             \
-    {                                    \
-        double result = 0;               \
-        if (!wrp_pop_f64(vm, &result)) { \
-            return false;                \
-        }                                \
-                                         \
-        if (result != value) {           \
-            return false;                \
-        }                                \
+#define CHECK_F64(vm, value)                           \
+    {                                                  \
+        double result = 0;                             \
+        if (wrp_pop_f64(vm, &result) != WRP_SUCCESS) { \
+            return false;                              \
+        }                                              \
+                                                       \
+        if (result != value) {                         \
+            return false;                              \
+        }                                              \
     }
 
 #define END_TEST() \

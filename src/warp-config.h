@@ -41,6 +41,7 @@
 #define MAX_GLOBAL_NAME_SIZE    128u
 #define MAX_LOCALS              1024u
 #define MAX_BLOCK_DEPTH         512
+#define MAX_BRANCH_TABLE_SIZE   32u
 
 //vm config
 #define WRP_OPERAND_STK_SZ      4096

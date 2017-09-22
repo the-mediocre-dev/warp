@@ -31,17 +31,31 @@ static uint32_t exec_invalid_op(struct wrp_vm *vm)
 
 static uint32_t exec_unreachable_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return WRP_ERR_UNREACHABLE_CODE_EXECUTED;
 }
 
 static uint32_t exec_no_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_block_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    size_t block_address = vm->program_counter;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    int8_t block_type = 0;
+    WRP_CHECK(wrp_read_vari7(code_body, code_body_sz, &vm->program_counter, &block_type));
+
+    uint32_t block_idx = 0;
+    WRP_CHECK(wrp_get_block_idx(vm->mdle, func_idx, block_address, &block_idx));
+    WRP_CHECK(wrp_push_block(vm, vm->mdle->block_labels[block_idx], block_type))
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_loop_op(struct wrp_vm *vm)
@@ -51,7 +65,9 @@ static uint32_t exec_loop_op(struct wrp_vm *vm)
 
 static uint32_t exec_if_op(struct wrp_vm *vm)
 {
-    size_t if_address = vm->program_counter++;
+    size_t if_address = vm->program_counter;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
     uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
     uint8_t *code_body = vm->mdle->code_bodies[func_idx];
     size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
@@ -65,19 +81,19 @@ static uint32_t exec_if_op(struct wrp_vm *vm)
     uint32_t if_idx = 0;
     WRP_CHECK(wrp_get_if_idx(vm->mdle, func_idx, if_address, &if_idx));
 
-    uint64_t condition = 0;
-    WRP_CHECK(wrp_pop_operand(vm, &condition, I32));
+    int32_t condition = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &condition));
 
-    if (((uint32_t)condition) != 0 || vm->mdle->else_addresses[if_idx] != 0) {
+    if (condition != 0 || vm->mdle->else_addresses[if_idx] != 0) {
         WRP_CHECK(wrp_push_block(vm, vm->mdle->if_labels[if_idx], block_type));
     }
 
-    if (((uint32_t)condition) == 0 && vm->mdle->else_addresses[if_idx] == 0) {
-        vm->program_counter = vm->mdle->if_labels[if_idx];
+    if (condition == 0 && vm->mdle->else_addresses[if_idx] == 0) {
+        WRP_CHECK(wrp_set_program_counter(vm, vm->mdle->if_labels[if_idx] + 1));
     }
 
-    if (((uint32_t)condition) == 0 && vm->mdle->else_addresses[if_idx] != 0) {
-        vm->program_counter = vm->mdle->else_addresses[if_idx] + 1;
+    if (condition == 0 && vm->mdle->else_addresses[if_idx] != 0) {
+        WRP_CHECK(wrp_set_program_counter(vm, vm->mdle->else_addresses[if_idx] + 1));
     }
 
     return WRP_SUCCESS;
@@ -85,35 +101,85 @@ static uint32_t exec_if_op(struct wrp_vm *vm)
 
 static uint32_t exec_else_op(struct wrp_vm *vm)
 {
-    vm->program_counter = vm->block_stk_labels[vm->block_stk_head];
-    WRP_CHECK(wrp_pop_block(vm));
+    WRP_CHECK(wrp_pop_block(vm, 0));
     return WRP_SUCCESS;
 }
 
 static uint32_t exec_end_op(struct wrp_vm *vm)
 {
-    if (vm->block_stk_head == vm->call_stk_block_ptrs[vm->call_stk_head]) {
-        WRP_CHECK(wrp_pop_call(vm));
-    } else {
-        //pop block
-    }
-
+    WRP_CHECK(wrp_pop_block(vm, 0));
     return WRP_SUCCESS;
 }
 
 static uint32_t exec_br_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    uint32_t depth = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &depth));
+    WRP_CHECK(wrp_pop_block(vm, depth))
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_br_if_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    uint32_t depth = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &depth));
+
+    int32_t condition = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &condition));
+
+    if (condition != 0) {
+        WRP_CHECK(wrp_pop_block(vm, depth));
+    }
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_br_table_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    uint32_t target_count = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &target_count));
+
+    //TODO handle any table size
+    if (target_count > MAX_BRANCH_TABLE_SIZE) {
+        return WRP_ERR_MDLE_BRANCH_TABLE_OVERFLOW;
+    }
+
+    uint32_t branch_table[MAX_BRANCH_TABLE_SIZE] = {0};
+
+    for (uint32_t i = 0; i < target_count; i++) {
+        WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &branch_table[i]));
+    }
+
+    uint32_t default_target = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &default_target));
+
+    int32_t target_idx = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &target_idx));
+
+    int32_t depth = default_target;
+
+    if (target_idx >= 0 && (uint32_t)target_idx < target_count) {
+        depth = target_idx;
+    }
+
+    WRP_CHECK(wrp_pop_block(vm, depth));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_return_op(struct wrp_vm *vm)
@@ -123,7 +189,14 @@ static uint32_t exec_return_op(struct wrp_vm *vm)
 
 static uint32_t exec_call_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    uint32_t target_idx = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &target_idx));
+    WRP_CHECK(wrp_push_call(vm, target_idx));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_call_indirect_op(struct wrp_vm *vm)
@@ -143,28 +216,32 @@ static uint32_t exec_select_op(struct wrp_vm *vm)
 
 static uint32_t exec_get_local_op(struct wrp_vm *vm)
 {
-    vm->program_counter++;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
 
     uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
+    uint32_t param_count = vm->mdle->param_counts[type_idx];
+    uint32_t local_count = vm->mdle->local_counts[func_idx];
     uint8_t *code_body = vm->mdle->code_bodies[func_idx];
     size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t local_idx = 0;
-
     WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &local_idx));
 
-    uint32_t param_count = vm->mdle->param_counts[func_idx];
-    uint32_t local_count = vm->mdle->local_counts[func_idx];
-    uint32_t operand_stk_ptr = vm->call_stk_operand_ptrs[vm->call_stk_head];
-    int32_t frame_tail = operand_stk_ptr - local_count - param_count;
-    int32_t local_stk_ptr = frame_tail + param_count + local_idx;
+    if (param_count + local_count == 0 || local_idx > param_count + local_count) {
+        return WRP_ERR_INVALID_LOCAL_IDX;
+    }
 
+    uint32_t operand_stk_ptr = vm->call_stk_operand_ptrs[vm->call_stk_head];
+    int32_t frame_tail = (operand_stk_ptr + 1) - local_count - param_count;
+    int32_t local_stk_ptr = frame_tail + local_idx;
+
+    //TODO validate local_stk_ptr is in current frame?
     if (local_stk_ptr < 0) {
         return WRP_ERR_INVALID_STK_OPERATION;
     }
 
     uint64_t local_value = vm->operand_stk_values[local_stk_ptr];
     uint8_t local_type = vm->operand_stk_types[local_stk_ptr];
-
     WRP_CHECK(wrp_push_operand(vm, local_value, local_type));
 
     return WRP_SUCCESS;
@@ -172,7 +249,37 @@ static uint32_t exec_get_local_op(struct wrp_vm *vm)
 
 static uint32_t exec_set_local_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
+    uint32_t param_count = vm->mdle->param_counts[type_idx];
+    uint32_t local_count = vm->mdle->local_counts[func_idx];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    uint32_t local_idx = 0;
+    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &local_idx));
+
+    if (param_count + local_count == 0 || local_idx > param_count + local_count) {
+        return WRP_ERR_INVALID_LOCAL_IDX;
+    }
+
+    uint32_t operand_stk_ptr = vm->call_stk_operand_ptrs[vm->call_stk_head];
+    int32_t frame_tail = (operand_stk_ptr + 1) - local_count - param_count;
+    int32_t local_stk_ptr = frame_tail + local_idx;
+
+    //TODO validate local_stk_ptr is in current frame?
+    if (local_stk_ptr < 0) {
+        return WRP_ERR_INVALID_STK_OPERATION;
+    }
+
+    uint64_t local_value = 0;
+    int8_t local_type = 0;
+    WRP_CHECK(wrp_pop_operand(vm, &local_value, &local_type));
+
+    vm->operand_stk_values[local_stk_ptr] = local_value;
+    vm->operand_stk_types[local_stk_ptr] = local_type;
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_tee_local_op(struct wrp_vm *vm)
@@ -317,7 +424,14 @@ static uint32_t exec_grow_memory_op(struct wrp_vm *vm)
 
 static uint32_t exec_i32_const_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    int32_t i32_const = 0;
+    WRP_CHECK(wrp_read_vari32(code_body, code_body_sz, &vm->program_counter, &i32_const));
+    WRP_CHECK(wrp_push_i32(vm, i32_const));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i64_const_op(struct wrp_vm *vm)
@@ -327,7 +441,14 @@ static uint32_t exec_i64_const_op(struct wrp_vm *vm)
 
 static uint32_t exec_f32_const_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
+    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
+    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
+    float f32_const = 0;
+    WRP_CHECK(wrp_read_f32(code_body, code_body_sz, &vm->program_counter, &f32_const));
+    WRP_CHECK(wrp_push_f32(vm, f32_const));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_const_op(struct wrp_vm *vm)
@@ -337,7 +458,15 @@ static uint32_t exec_f64_const_op(struct wrp_vm *vm)
 
 static uint32_t exec_i32_eqz_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int32_t x = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &x));
+
+    int32_t result = (x == 0);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_eq_op(struct wrp_vm *vm)
@@ -462,7 +591,18 @@ static uint32_t exec_f32_lt_op(struct wrp_vm *vm)
 
 static uint32_t exec_f32_gt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x > y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_le_op(struct wrp_vm *vm)
@@ -507,12 +647,51 @@ static uint32_t exec_f64_ge_op(struct wrp_vm *vm)
 
 static uint32_t exec_i32_clz_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int32_t x = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &x));
+
+    int32_t num_zeros = 32;
+
+    //TODO optimize
+    if (x != 0) {
+        num_zeros = 0;
+        while (x > 0) {
+            x <<= 1;
+            num_zeros++;
+        }
+    }
+
+    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_ctz_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int32_t x = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &x));
+
+    uint32_t num_zeros = 32;
+
+    //TODO optimize
+    //http://graphics.stanford.edu/~seander/bithacks.html
+    if (x != 0) {
+
+        // set x's trailing 0s to 1s and zero rest
+        x = (x ^ (x - 1)) >> 1;
+
+        num_zeros = 0;
+        while (x > 0) {
+            x >>= 1;
+            num_zeros++;
+        }
+    }
+
+    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_popcnt_op(struct wrp_vm *vm)
@@ -527,21 +706,34 @@ static uint32_t exec_i32_add_op(struct wrp_vm *vm)
 
 static uint32_t exec_i32_sub_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int32_t y = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &y));
+
+    int32_t x = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &x));
+
+    //TODO handle wrapping?
+    int32_t result = x - y;
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_mul_op(struct wrp_vm *vm)
 {
-    vm->program_counter++;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
 
-    uint64_t y = 0;
-    WRP_CHECK(wrp_pop_operand(vm, &y, I32));
+    int32_t y = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &y));
 
-    uint64_t x = 0;
-    WRP_CHECK(wrp_pop_operand(vm, &x, I32));
+    int32_t x = 0;
+    WRP_CHECK(wrp_pop_i32(vm, &x));
 
-    uint64_t result = (uint64_t)((int32_t)x * (int32_t)y);
-    WRP_CHECK(wrp_push_operand(vm, result, I32));
+    //TODO handle wrapping?
+    int32_t result = x * y;
+    WRP_CHECK(wrp_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
@@ -608,12 +800,51 @@ static uint32_t exec_i32_rotr_op(struct wrp_vm *vm)
 
 static uint32_t exec_i64_clz_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int64_t x = 0;
+    WRP_CHECK(wrp_pop_i64(vm, &x));
+
+    uint64_t num_zeros = 64;
+
+    //TODO optimize
+    if (x != 0) {
+        num_zeros = 0;
+        while (x > 0) {
+            x <<= 1;
+            num_zeros++;
+        }
+    }
+
+    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i64_ctz_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    int64_t x = 0;
+    WRP_CHECK(wrp_pop_i64(vm, &x));
+
+    uint32_t num_zeros = 64;
+
+    //TODO optimize
+    //http://graphics.stanford.edu/~seander/bithacks.html
+    if (x != 0) {
+
+        // set x's trailing 0s to 1s and zero rest
+        x = (x ^ (x - 1)) >> 1;
+
+        num_zeros = 0;
+        while (x > 0) {
+            x >>= 1;
+            num_zeros++;
+        }
+    }
+
+    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i64_popcnt_op(struct wrp_vm *vm)
@@ -1153,7 +1384,9 @@ static uint32_t (*const exec_jump_table[])(struct wrp_vm *vm) = {
     [OP_I32_REINTERPRET_F32] = exec_i32_reinterpret_f32_op,
     [OP_I64_REINTERPRET_F64] = exec_i64_reinterpret_f64_op,
     [OP_F32_REINTERPRET_I32] = exec_f32_reinterpret_i32_op,
-    [OP_F64_REINTERPRET_I64] = exec_f64_reinterpret_i64_op};
+    [OP_F64_REINTERPRET_I64] = exec_f64_reinterpret_i64_op
+    //clang-format brace hack
+};
 
 uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx)
 {
@@ -1164,17 +1397,23 @@ uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx)
     while (vm->call_stk_head >= 0) {
         uint32_t current_func_idx = vm->call_stk_func_idx[vm->call_stk_head];
         uint8_t *code_body = vm->mdle->code_bodies[current_func_idx];
+        size_t code_body_sz = vm->mdle->code_bodies_sz[current_func_idx];
+
+        if (vm->program_counter >= code_body_sz) {
+            return WRP_ERR_INSTRUCTION_OVERFLOW;
+        }
+
         uint8_t opcode = code_body[vm->program_counter];
 
         if (opcode >= NUM_OPCODES) {
             return WRP_ERR_INVALID_OPCODE;
         }
 
-        uint32_t err = exec_jump_table[opcode](vm);
+        uint32_t error = exec_jump_table[opcode](vm);
 
-        if (err != WRP_SUCCESS) {
+        if (error != WRP_SUCCESS) {
             //restore program counter
-            return err;
+            return error;
         }
     }
 

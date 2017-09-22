@@ -265,6 +265,10 @@ uint32_t wrp_check_immediates(uint8_t opcode,
 
         uint32_t default_target = 0;
         WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &default_target));
+
+        if(target_count > MAX_BRANCH_TABLE_SIZE){
+            return WRP_ERR_MDLE_BRANCH_TABLE_OVERFLOW;
+        }
     } else if (opcode == OP_CALL) {
         uint32_t func_idx = 0;
         WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &func_idx));

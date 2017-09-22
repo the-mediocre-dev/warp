@@ -280,11 +280,11 @@ static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdl
             } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK) {
                 block_type_stk_head--;
                 uint32_t block_op_idx = block_op_idx_stk[block_op_stk_head--];
-                mdle->block_labels[block_op_idx] = opcode_pos + 1;
+                mdle->block_labels[block_op_idx] = opcode_pos;
             } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_IF) {
                 block_type_stk_head--;
                 uint32_t if_op_idx = if_op_idx_stk[if_op_stk_head--];
-                mdle->if_labels[if_op_idx] = opcode_pos + 1;
+                mdle->if_labels[if_op_idx] = opcode_pos;
             } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_LOOP) {
                 block_type_stk_head--;
             }
