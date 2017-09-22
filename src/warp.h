@@ -21,7 +21,9 @@
 #include <stdint.h>
 
 #include "warp-config.h"
+#include "warp-compiler-check.h"
 #include "warp-error.h"
+#include "warp-stack-ops.h"
 #include "warp-wasm.h"
 
 struct wrp_vm;
@@ -48,6 +50,7 @@ struct wrp_vm {
     int8_t operand_stk_types[WRP_OPERAND_STK_SZ];
     int32_t operand_stk_head;
     size_t block_stk_labels[WRP_BLOCK_STK_SZ];
+    int32_t block_stk_operand_ptrs[WRP_CALL_STK_SZ];
     int8_t block_stk_types[WRP_BLOCK_STK_SZ];
     int32_t block_stk_head;
     uint32_t call_stk_func_idx[WRP_CALL_STK_SZ];
