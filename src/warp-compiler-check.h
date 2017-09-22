@@ -17,7 +17,7 @@
 #pragma once
 
 #include <assert.h>
-#include <climits>
+#include <limits.h>
 #include <stdint.h>
 
 _Static_assert(CHAR_BIT == 8, "warp requires 8 bit bytes");
