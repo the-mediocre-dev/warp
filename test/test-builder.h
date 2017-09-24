@@ -56,6 +56,22 @@ bool test(struct wrp_vm *vm)    \
         }                                                                 \
     }
 
+#define CALL_AND_TRAP(vm, func, expected_error)                             \
+    {                                                                       \
+        uint32_t func_idx = 0;                                              \
+        if (wrp_get_func_idx(vm->mdle, func, &func_idx) != WRP_SUCCESS) {   \
+            return false;                                                   \
+        }                                                                   \
+                                                                            \
+        if (wrp_call(vm, func_idx)) {                                       \
+            return false;                                                   \
+        }                                                                   \
+                                                                            \
+        if(vm->error != expected_error){                                    \
+            return false;                                                   \
+        }                                                                   \
+    }
+
 #define CHECK_STK_EMPTY(vm)           \
                                       \
     if (vm->call_stk_head != -1) {    \
@@ -77,7 +93,7 @@ bool test(struct wrp_vm *vm)    \
             return false;                              \
         }                                              \
                                                        \
-        if (result != value) {                         \
+        if (result != (int32_t)value) {                \
             return false;                              \
         }                                              \
     }
@@ -89,7 +105,7 @@ bool test(struct wrp_vm *vm)    \
             return false;                              \
         }                                              \
                                                        \
-        if (result != value) {                         \
+        if (result != (int64_t)value) {                \
             return false;                              \
         }                                              \
     }
