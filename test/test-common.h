@@ -34,11 +34,11 @@
         abort();                                \
     }
 
-#define WRP_START_TESTS(vm, dir, path_buf, path_buf_sz, mdle_name) \
-    printf("running test module %s\n", mdle_name);                 \
+#define LOAD_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name)  \
+    printf("loading test module %s\n", mdle_name);              \
     load_test_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);
 
-#define WRP_RUN_TEST(vm, test, passed, failed)    \
+#define RUN_TEST(vm, test, passed, failed)        \
     if (test(vm)) {                               \
         printf(GREEN_TEXT("%s passed\n"), #test); \
         (passed)++;                               \
@@ -47,7 +47,7 @@
         (failed)++;                               \
     }
 
-#define WRP_END_TESTS(vm) \
+#define UNLOAD_MODULE(vm) \
     unload_test_mdle(vm); \
     printf("complete\n\n");
 

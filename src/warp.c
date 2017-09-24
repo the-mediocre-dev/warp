@@ -132,10 +132,9 @@ bool wrp_call(struct wrp_vm *vm, uint32_t func_idx)
         return false;
     }
 
-    uint32_t error = wrp_exec(vm, func_idx);
+    vm->error = wrp_exec(vm, func_idx);
 
-    if(error != WRP_SUCCESS){
-        //trap
+    if(vm->error != WRP_SUCCESS){
         return false;
     }
 
