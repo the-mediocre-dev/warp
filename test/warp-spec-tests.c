@@ -19,6 +19,7 @@
 
 #include "test-common.h"
 #include "i32-tests.h"
+#include "i64-tests.h"
 #include "if-tests.h"
 
 #define MAX_FILE_PATH 4096
@@ -59,6 +60,7 @@ int main(int argc, char** argv)
     uint32_t passed = 0;
     uint32_t failed = 0;
     run_i32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_i64_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_if_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
 
     test_free(path_buf);

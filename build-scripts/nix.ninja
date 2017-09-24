@@ -43,6 +43,9 @@ build $builddir/test/warp-spec-tests.o: $
 build $builddir/test/i32-tests.o: $
   compile ./test/i32-tests.c
 
+build $builddir/test/i64-tests.o: $
+  compile ./test/i64-tests.c
+
 build $builddir/test/if-tests.o: $
   compile ./test/if-tests.c
 
@@ -56,6 +59,7 @@ build $target : link $builddir/src/warp-buf.o $
                      $builddir/test/test-common.o $
                      $builddir/test/warp-spec-tests.o $
                      $builddir/test/i32-tests.o $
+                     $builddir/test/i64-tests.o $
                      $builddir/test/if-tests.o
 
 default $target
