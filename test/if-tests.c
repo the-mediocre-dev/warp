@@ -306,65 +306,65 @@ void run_if_tests(struct wrp_vm *vm,
     uint32_t *passed,
     uint32_t *failed)
 {
-    WRP_START_TESTS(vm, dir, path_buf, path_buf_sz, "if.wasm");
+    LOAD_MODULE(vm, dir, path_buf, path_buf_sz, "if.wasm");
 
     //run empty tests
-    WRP_RUN_TEST(vm, if_empty_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_empty_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_empty_test_03, *passed, *failed);
-    WRP_RUN_TEST(vm, if_empty_test_04, *passed, *failed);
+    RUN_TEST(vm, if_empty_test_01, *passed, *failed);
+    RUN_TEST(vm, if_empty_test_02, *passed, *failed);
+    RUN_TEST(vm, if_empty_test_03, *passed, *failed);
+    RUN_TEST(vm, if_empty_test_04, *passed, *failed);
 
     //run singular tests
-    WRP_RUN_TEST(vm, if_singular_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_singular_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_singular_test_03, *passed, *failed);
-    WRP_RUN_TEST(vm, if_singular_test_04, *passed, *failed);
+    RUN_TEST(vm, if_singular_test_01, *passed, *failed);
+    RUN_TEST(vm, if_singular_test_02, *passed, *failed);
+    RUN_TEST(vm, if_singular_test_03, *passed, *failed);
+    RUN_TEST(vm, if_singular_test_04, *passed, *failed);
 
     //run multi tests
-    WRP_RUN_TEST(vm, if_multi_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_multi_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_multi_test_03, *passed, *failed);
-    WRP_RUN_TEST(vm, if_multi_test_04, *passed, *failed);
+    RUN_TEST(vm, if_multi_test_01, *passed, *failed);
+    RUN_TEST(vm, if_multi_test_02, *passed, *failed);
+    RUN_TEST(vm, if_multi_test_03, *passed, *failed);
+    RUN_TEST(vm, if_multi_test_04, *passed, *failed);
 
     //run nested tests
-    WRP_RUN_TEST(vm, if_nested_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_03, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_04, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_05, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_06, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_07, *passed, *failed);
-    WRP_RUN_TEST(vm, if_nested_test_08, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_01, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_02, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_03, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_04, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_05, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_06, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_07, *passed, *failed);
+    RUN_TEST(vm, if_nested_test_08, *passed, *failed);
 
     //run as-unary-operand tests
-    WRP_RUN_TEST(vm, if_as_unary_operand_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_unary_operand_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_unary_operand_test_03, *passed, *failed);
+    RUN_TEST(vm, if_as_unary_operand_test_01, *passed, *failed);
+    RUN_TEST(vm, if_as_unary_operand_test_02, *passed, *failed);
+    RUN_TEST(vm, if_as_unary_operand_test_03, *passed, *failed);
 
     //run as-binary-operand tests
-    WRP_RUN_TEST(vm, if_as_binary_operand_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_binary_operand_test_02, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_binary_operand_test_03, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_binary_operand_test_04, *passed, *failed);
+    RUN_TEST(vm, if_as_binary_operand_test_01, *passed, *failed);
+    RUN_TEST(vm, if_as_binary_operand_test_02, *passed, *failed);
+    RUN_TEST(vm, if_as_binary_operand_test_03, *passed, *failed);
+    RUN_TEST(vm, if_as_binary_operand_test_04, *passed, *failed);
 
     //run as-test-operand tests
-    WRP_RUN_TEST(vm, if_as_test_operand_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_test_operand_test_02, *passed, *failed);
+    RUN_TEST(vm, if_as_test_operand_test_01, *passed, *failed);
+    RUN_TEST(vm, if_as_test_operand_test_02, *passed, *failed);
 
     //run as-compare-operand tests
-    WRP_RUN_TEST(vm, if_as_compare_operand_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_as_compare_operand_test_02, *passed, *failed);
+    RUN_TEST(vm, if_as_compare_operand_test_01, *passed, *failed);
+    RUN_TEST(vm, if_as_compare_operand_test_02, *passed, *failed);
 
     //run break-bare tests
-    WRP_RUN_TEST(vm, if_break_bare_test_01, *passed, *failed);
+    RUN_TEST(vm, if_break_bare_test_01, *passed, *failed);
 
     //run break-value tests
-    WRP_RUN_TEST(vm, if_break_value_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_break_value_test_02, *passed, *failed);
+    RUN_TEST(vm, if_break_value_test_01, *passed, *failed);
+    RUN_TEST(vm, if_break_value_test_02, *passed, *failed);
 
     //run effects tests
-    WRP_RUN_TEST(vm, if_effects_test_01, *passed, *failed);
-    WRP_RUN_TEST(vm, if_effects_test_02, *passed, *failed);
+    RUN_TEST(vm, if_effects_test_01, *passed, *failed);
+    RUN_TEST(vm, if_effects_test_02, *passed, *failed);
 
-    WRP_END_TESTS(vm);
+    UNLOAD_MODULE(vm);
 }
