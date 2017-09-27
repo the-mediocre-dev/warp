@@ -5,7 +5,7 @@ builddir = obj
 cc = clang
 cf = -g -std=c11 -Wall -pedantic -fcolor-diagnostics -fansi-escape-codes -Wno-gnu-zero-variadic-macro-arguments -I "./src" -I "./test"
 ll = clang
-lf = -g
+lf = -g -lm
 
 rule compile
   command = $cc $cf -c $in -o $out
