@@ -18,6 +18,8 @@
 #include <stdint.h>
 
 #include "test-common.h"
+#include "f32-tests.h"
+#include "f64-tests.h"
 #include "i32-tests.h"
 #include "i64-tests.h"
 #include "if-tests.h"
@@ -47,18 +49,20 @@ void print_footer(uint32_t passed, uint32_t failed)
 
 int main(int argc, char** argv)
 {
-    WRP_ASSERT(argc >= 2, "invalid args");
+    ASSERT(argc >= 2, "invalid args");
 
     print_header();
 
     struct wrp_vm *vm = wrp_open_vm(test_alloc, test_free);
-    WRP_ASSERT(vm, "vm failed to initialise");
+    ASSERT(vm, "vm failed to initialise");
 
     uint8_t *path_buf = test_alloc(MAX_FILE_PATH + 1, alignof(uint8_t));
-    WRP_ASSERT(path_buf, "failed to allocate path buffer");
+    ASSERT(path_buf, "failed to allocate path buffer");
 
     uint32_t passed = 0;
     uint32_t failed = 0;
+    run_f32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_f64_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_i32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_i64_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_if_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);

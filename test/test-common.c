@@ -104,28 +104,53 @@ void test_free(void *ptr)
     free(unaligned_ptr);
 }
 
-void load_test_mdle(struct wrp_vm *vm,
+void load_mdle(struct wrp_vm *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
-    const char* mdle_name)
+    const char *mdle_name)
 {
-    WRP_ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
+    printf("loading test module %s\n", mdle_name);
+
+    ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
 
     uint8_t *buf = NULL;
     size_t buf_sz = 0;
-    WRP_ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load \"%s\"", mdle_name);
+    ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load \"%s\"", mdle_name);
 
     struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
-    WRP_ASSERT(mdle, "failed to instantiate \"%s\"", mdle_name);
-    WRP_ASSERT(wrp_attach_mdle(vm, mdle), "failed to attach module \"%s\"", mdle_name);
+    ASSERT(mdle, "failed to instantiate \"%s\"", mdle_name);
+    ASSERT(wrp_attach_mdle(vm, mdle), "failed to attach module \"%s\"", mdle_name);
 
     free(buf);
 }
 
-void unload_test_mdle(struct wrp_vm *vm)
+uint32_t validate_mdle(struct wrp_vm *vm,
+    const char *dir,
+    uint8_t *path_buf,
+    size_t path_buf_sz,
+    const char *mdle_name)
 {
+    ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
+
+    uint8_t *buf = NULL;
+    size_t buf_sz = 0;
+    ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load \"%s\"", mdle_name);
+
+    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
+
+    if(mdle != NULL){
+        wrp_destroy_mdle(vm, mdle);
+    }
+
+    return vm->error;
+}
+
+void unload_mdle(struct wrp_vm *vm)
+{
+    printf("unloading test module\n\n");
+
     struct wrp_wasm_mdle *mdle = vm->mdle;
-    WRP_ASSERT(wrp_detach_mdle(vm), "failed to detach modle");
+    ASSERT(wrp_detach_mdle(vm), "failed to detach modle");
     wrp_destroy_mdle(vm, mdle);
 }

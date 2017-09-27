@@ -14,6 +14,7 @@
  *  limitations under the License.
  */
 
+#include <math.h>
 #include <stddef.h>
 
 #include "warp-buf.h"
@@ -811,17 +812,49 @@ static uint32_t exec_i64_ge_u_op(struct wrp_vm *vm)
 
 static uint32_t exec_f32_eq_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
-}
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
 
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x == y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
+}
 static uint32_t exec_f32_ne_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x != y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_lt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x < y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_gt_op(struct wrp_vm *vm)
@@ -842,42 +875,130 @@ static uint32_t exec_f32_gt_op(struct wrp_vm *vm)
 
 static uint32_t exec_f32_le_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x <= y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_ge_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    int32_t result = (x >= y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_eq_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x == y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_ne_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x != y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_lt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x < y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_gt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x > y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_le_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x <= y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_ge_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    int32_t result = (x >= y);
+    WRP_CHECK(wrp_push_i32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_clz_op(struct wrp_vm *vm)
@@ -1573,142 +1694,530 @@ static uint32_t exec_i64_rotr_op(struct wrp_vm *vm)
 
 static uint32_t exec_f32_abs_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = fabsf(x);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_neg_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = -x;
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_ceil_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = ceilf(x);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_floor_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = floorf(x);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_trunc_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = truncf(x);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_nearest_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = nearbyintf(x);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_sqrt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint32_t int_x = *((uint32_t *)(&x));
+        int_x |= 0x400000;
+        result = *((float *)&int_x);
+    } else if (x == -0.0f && signbit(x)) {
+        result = -0.0f;
+    } else if (signbit(x)) {
+        result = NAN;
+    } else {
+        result = sqrtf(x);
+    }
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_add_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = x + y;
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_sub_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = x - y;
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_mul_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = x * y;
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_div_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = x / y;
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_min_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint32_t int_x = *((uint32_t *)(&x));
+        int_x |= 0x400000;
+        result = *((float *)&int_x);
+    } else if (isnan(y)) {
+        uint32_t int_y = *((uint32_t *)(&y));
+        int_y |= 0x400000;
+        result = *((float *)&int_y);
+    } else if (x == y && !signbit(x) && signbit(y)) {
+        result = x;
+    } else if (x == y && signbit(x) && !signbit(y)) {
+        result = y;
+    } else {
+        result = x < y ? x : y;
+    }
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_max_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint32_t int_x = *((uint32_t *)(&x));
+        int_x |= 0x400000;
+        result = *((float *)&int_x);
+    } else if (isnan(y)) {
+        uint32_t int_y = *((uint32_t *)(&y));
+        int_y |= 0x400000;
+        result = *((float *)&int_y);
+    } else if (x == y && !signbit(x) && signbit(y)) {
+        result = y;
+    } else if (x == y && signbit(x) && !signbit(y)) {
+        result = x;
+    } else {
+        result = x > y ? x : y;
+    }
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f32_copy_sign_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    float y = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &y));
+
+    float x = 0;
+    WRP_CHECK(wrp_pop_f32(vm, &x));
+
+    float result = copysignf(x, y);
+
+    WRP_CHECK(wrp_push_f32(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_abs_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = fabs(x);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_neg_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = -x;
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_ceil_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = ceil(x);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_floor_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = floor(x);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_trunc_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = trunc(x);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_nearest_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = nearbyint(x);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_sqrt_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint64_t int_x = *((uint64_t *)(&x));
+        int_x |= 0x8000000000000;
+        result = *((double *)&int_x);
+    } else if (x == -0.0f && signbit(x)) {
+        result = -0.0f;
+    } else if (signbit(x)) {
+        result = NAN;
+    } else {
+        result = sqrt(x);
+    }
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_add_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = x + y;
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_sub_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = x - y;
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_mul_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = x * y;
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_div_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = x / y;
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_min_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint64_t int_x = *((uint64_t *)(&x));
+        int_x |= 0x400000;
+        result = *((double *)&int_x);
+    } else if (isnan(y)) {
+        uint64_t int_y = *((uint64_t *)(&y));
+        int_y |= 0x400000;
+        result = *((double *)&int_y);
+    } else if (x == y && !signbit(x) && signbit(y)) {
+        result = x;
+    } else if (x == y && signbit(x) && !signbit(y)) {
+        result = y;
+    } else {
+        result = x < y ? x : y;
+    }
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_max_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = 0;
+
+    //TODO confirm this is correct
+    if (isnan(x)) {
+        uint64_t int_x = *((uint64_t *)(&x));
+        int_x |= 0x400000;
+        result = *((double *)&int_x);
+    } else if (isnan(y)) {
+        uint64_t int_y = *((uint64_t *)(&y));
+        int_y |= 0x400000;
+        result = *((double *)&int_y);
+    } else if (x == y && !signbit(x) && signbit(y)) {
+        result = y;
+    } else if (x == y && signbit(x) && !signbit(y)) {
+        result = x;
+    } else {
+        result = x > y ? x : y;
+    }
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_f64_copy_sign_op(struct wrp_vm *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+
+    double y = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &y));
+
+    double x = 0;
+    WRP_CHECK(wrp_pop_f64(vm, &x));
+
+    double result = copysign(x, y);
+
+    WRP_CHECK(wrp_push_f64(vm, result));
+
+    return WRP_SUCCESS;
 }
 
 static uint32_t exec_i32_wrap_i64_op(struct wrp_vm *vm)

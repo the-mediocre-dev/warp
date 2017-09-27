@@ -16,38 +16,15 @@
 
 #pragma once
 
-#include <math.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <warp.h>
 
-#define GREEN_TEXT(text) "\x1b[32;1m" text "\x1b[0m"
-#define RED_TEXT(text) "\x1b[31;1m" text "\x1b[0m"
+struct wrp_vm;
 
-#define ASSERT(condition, format, ...)          \
-    if (!(!!(condition))) {                     \
-        fprintf(stderr, format, ##__VA_ARGS__); \
-        abort();                                \
-    }
-
-void *test_alloc(size_t size, size_t align);
-
-void test_free(void *ptr);
-
-void load_mdle(struct wrp_vm *vm,
+void run_f64_tests(struct wrp_vm *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
-    const char *mdle_name);
-
-uint32_t validate_mdle(struct wrp_vm *vm,
-    const char *dir,
-    uint8_t *path_buf,
-    size_t path_buf_sz,
-    const char *mdle_name);
-
-void unload_mdle(struct wrp_vm *vm);
+    uint32_t *passed,
+    uint32_t *failed);

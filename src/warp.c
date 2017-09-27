@@ -73,10 +73,11 @@ struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
     error = wrp_load_mdle(mdle, buf, buf_sz, &meta);
 
     if(error != WRP_SUCCESS){
-        vm->error = error;
         vm->free_fn(mdle);
         return NULL;
     }
+
+    vm->error = error;
 
     return mdle;
 }
