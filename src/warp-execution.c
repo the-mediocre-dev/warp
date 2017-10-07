@@ -25,136 +25,111 @@
 #include "warp-wasm.h"
 #include "warp.h"
 
-static uint32_t exec_invalid_op(struct wrp_vm *vm)
+static wrp_err_t exec_invalid_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return WRP_ERR_INVALID_OPCODE;
 }
 
-static uint32_t exec_unreachable_op(struct wrp_vm *vm)
+static wrp_err_t exec_unreachable_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNREACHABLE_CODE_EXECUTED;
 }
 
-static uint32_t exec_no_op(struct wrp_vm *vm)
+static wrp_err_t exec_no_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_block_op(struct wrp_vm *vm)
+static wrp_err_t exec_block_op(wrp_vm_t *vm)
 {
-    size_t block_address = vm->program_counter;
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
-    int8_t block_type = 0;
-    WRP_CHECK(wrp_read_vari7(code_body, code_body_sz, &vm->program_counter, &block_type));
+    size_t block_address = vm->opcode_stream.pos - 1;
+    uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    int8_t signature = 0;
+    WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
 
     uint32_t block_idx = 0;
     WRP_CHECK(wrp_get_block_idx(vm->mdle, func_idx, block_address, &block_idx));
-    WRP_CHECK(wrp_push_block(vm, vm->mdle->block_labels[block_idx], block_type))
+    WRP_CHECK(wrp_stk_exec_push_block(vm, vm->mdle->block_labels[block_idx], BLOCK, signature))
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_loop_op(struct wrp_vm *vm)
+static wrp_err_t exec_loop_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_if_op(struct wrp_vm *vm)
+static wrp_err_t exec_if_op(wrp_vm_t *vm)
 {
-    size_t if_address = vm->program_counter;
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
+    size_t if_address = vm->opcode_stream.pos - 1;
+    uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    int8_t signature = 0;
+    WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
 
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
-    int8_t block_type = 0;
-    WRP_CHECK(wrp_read_vari7(code_body, code_body_sz, &vm->program_counter, &block_type));
-
-    if (!wrp_is_valid_block_type(block_type)) {
-        return WRP_ERR_INVALID_BLOCK_TYPE;
+    if (!wrp_is_valid_block_signature(signature)) {
+        return WRP_ERR_INVALID_BLOCK_SIGNATURE;
     }
 
     uint32_t if_idx = 0;
     WRP_CHECK(wrp_get_if_idx(vm->mdle, func_idx, if_address, &if_idx));
 
     int32_t condition = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &condition));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &condition));
 
     if (condition != 0 || vm->mdle->else_addresses[if_idx] != 0) {
-        WRP_CHECK(wrp_push_block(vm, vm->mdle->if_labels[if_idx], block_type));
+        WRP_CHECK(wrp_stk_exec_push_block(vm, vm->mdle->if_labels[if_idx], BLOCK_IF, signature));
     }
 
     if (condition == 0 && vm->mdle->else_addresses[if_idx] == 0) {
-        WRP_CHECK(wrp_set_program_counter(vm, vm->mdle->if_labels[if_idx] + 1));
+        vm->opcode_stream.pos = vm->mdle->if_labels[if_idx] + 1;
     }
 
     if (condition == 0 && vm->mdle->else_addresses[if_idx] != 0) {
-        WRP_CHECK(wrp_set_program_counter(vm, vm->mdle->else_addresses[if_idx] + 1));
+        vm->opcode_stream.pos = vm->mdle->else_addresses[if_idx] + 1;
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_else_op(struct wrp_vm *vm)
+static wrp_err_t exec_else_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_pop_block(vm, 0));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_end_op(struct wrp_vm *vm)
+static wrp_err_t exec_end_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_pop_block(vm, 0));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_br_op(struct wrp_vm *vm)
+static wrp_err_t exec_br_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t depth = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &depth));
-    WRP_CHECK(wrp_pop_block(vm, depth))
-
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &depth));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth))
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_br_if_op(struct wrp_vm *vm)
+static wrp_err_t exec_br_if_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t depth = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &depth));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &depth));
 
     int32_t condition = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &condition));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &condition));
 
     if (condition != 0) {
-        WRP_CHECK(wrp_pop_block(vm, depth));
+        WRP_CHECK(wrp_stk_exec_pop_block(vm, depth));
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_br_table_op(struct wrp_vm *vm)
+static wrp_err_t exec_br_table_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t target_count = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &target_count));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &target_count));
 
     //TODO handle any table size
     if (target_count > MAX_BRANCH_TABLE_SIZE) {
@@ -164,14 +139,14 @@ static uint32_t exec_br_table_op(struct wrp_vm *vm)
     uint32_t branch_table[MAX_BRANCH_TABLE_SIZE] = {0};
 
     for (uint32_t i = 0; i < target_count; i++) {
-        WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &branch_table[i]));
+        WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &branch_table[i]));
     }
 
     uint32_t default_target = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &default_target));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &default_target));
 
     int32_t target_idx = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &target_idx));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &target_idx));
 
     int32_t depth = default_target;
 
@@ -179,834 +154,724 @@ static uint32_t exec_br_table_op(struct wrp_vm *vm)
         depth = target_idx;
     }
 
-    WRP_CHECK(wrp_pop_block(vm, depth));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_return_op(struct wrp_vm *vm)
+static wrp_err_t exec_return_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_call_op(struct wrp_vm *vm)
+static wrp_err_t exec_call_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t target_idx = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &target_idx));
-    WRP_CHECK(wrp_push_call(vm, target_idx));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &target_idx));
+    WRP_CHECK(wrp_stk_exec_push_call(vm, target_idx));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_call_indirect_op(struct wrp_vm *vm)
+static wrp_err_t exec_call_indirect_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_drop_op(struct wrp_vm *vm)
+static wrp_err_t exec_drop_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_select_op(struct wrp_vm *vm)
+static wrp_err_t exec_select_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_get_local_op(struct wrp_vm *vm)
+static wrp_err_t exec_get_local_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
-    uint32_t param_count = vm->mdle->param_counts[type_idx];
-    uint32_t local_count = vm->mdle->local_counts[func_idx];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t local_idx = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &local_idx));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
-    if (param_count + local_count == 0 || local_idx > param_count + local_count) {
-        return WRP_ERR_INVALID_LOCAL_IDX;
-    }
+    int32_t frame_tail = 0;
+    WRP_CHECK(wrp_stk_exec_call_frame_tail(vm, &frame_tail));
 
-    uint32_t operand_stk_ptr = vm->call_stk_operand_ptrs[vm->call_stk_head];
-    int32_t frame_tail = (operand_stk_ptr + 1) - local_count - param_count;
     int32_t local_stk_ptr = frame_tail + local_idx;
 
-    //TODO validate local_stk_ptr is in current frame?
-    if (local_stk_ptr < 0) {
+    if (local_stk_ptr < 0 || local_stk_ptr > vm->call_stk[vm->call_stk_head].oprd_stk_ptr) {
         return WRP_ERR_INVALID_STK_OPERATION;
     }
 
-    uint64_t local_value = vm->operand_stk_values[local_stk_ptr];
-    uint8_t local_type = vm->operand_stk_types[local_stk_ptr];
-    WRP_CHECK(wrp_push_operand(vm, local_value, local_type));
+    uint64_t local_value = vm->oprd_stk[local_stk_ptr].value;
+    uint8_t local_type = vm->oprd_stk[local_stk_ptr].type;
+    WRP_CHECK(wrp_stk_exec_push_op(vm, local_value, local_type));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_set_local_op(struct wrp_vm *vm)
+static wrp_err_t exec_set_local_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
-    uint32_t param_count = vm->mdle->param_counts[type_idx];
-    uint32_t local_count = vm->mdle->local_counts[func_idx];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     uint32_t local_idx = 0;
-    WRP_CHECK(wrp_read_varui32(code_body, code_body_sz, &vm->program_counter, &local_idx));
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
-    if (param_count + local_count == 0 || local_idx > param_count + local_count) {
-        return WRP_ERR_INVALID_LOCAL_IDX;
-    }
+    int32_t frame_tail = 0;
+    WRP_CHECK(wrp_stk_exec_call_frame_tail(vm, &frame_tail));
 
-    uint32_t operand_stk_ptr = vm->call_stk_operand_ptrs[vm->call_stk_head];
-    int32_t frame_tail = (operand_stk_ptr + 1) - local_count - param_count;
     int32_t local_stk_ptr = frame_tail + local_idx;
 
-    //TODO validate local_stk_ptr is in current frame?
-    if (local_stk_ptr < 0) {
+    if (local_stk_ptr < 0 || local_stk_ptr > vm->call_stk[vm->call_stk_head].oprd_stk_ptr) {
         return WRP_ERR_INVALID_STK_OPERATION;
     }
 
     uint64_t local_value = 0;
     int8_t local_type = 0;
-    WRP_CHECK(wrp_pop_operand(vm, &local_value, &local_type));
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &local_value, &local_type));
 
-    vm->operand_stk_values[local_stk_ptr] = local_value;
-    vm->operand_stk_types[local_stk_ptr] = local_type;
+    vm->oprd_stk[local_stk_ptr].value = local_value;
+    vm->oprd_stk[local_stk_ptr].type = local_type;
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_tee_local_op(struct wrp_vm *vm)
+static wrp_err_t exec_tee_local_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_get_global_op(struct wrp_vm *vm)
+static wrp_err_t exec_get_global_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_set_global_op(struct wrp_vm *vm)
+static wrp_err_t exec_set_global_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_load_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_load_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_load_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_load_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_load_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_load_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_load_8_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_load_8_s_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_load_8_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_load_8_u_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_load_16_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_load_16_s_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_load_16_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_load_16_u_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_8_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_8_s_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_8_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_8_u_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_16_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_16_s_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_16_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_16_u_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_32_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_32_s_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_load_32_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_load_32_u_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_store_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_store_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_store_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_store_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_store_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_store_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_store_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_store_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_store_8_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_store_8_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_store_16_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_store_16_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_store_8_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_store_8_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_store_16_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_store_16_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_store_32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_store_32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_current_memory_op(struct wrp_vm *vm)
+static wrp_err_t exec_current_memory_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_grow_memory_op(struct wrp_vm *vm)
+static wrp_err_t exec_grow_memory_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_const_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_const_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     int32_t i32_const = 0;
-    WRP_CHECK(wrp_read_vari32(code_body, code_body_sz, &vm->program_counter, &i32_const));
-    WRP_CHECK(wrp_push_i32(vm, i32_const));
+    WRP_CHECK(wrp_read_vari32(&vm->opcode_stream, &i32_const));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, i32_const));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_const_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_const_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     int64_t i64_const = 0;
-    WRP_CHECK(wrp_read_vari64(code_body, code_body_sz, &vm->program_counter, &i64_const));
-    WRP_CHECK(wrp_push_i64(vm, i64_const));
+    WRP_CHECK(wrp_read_vari64(&vm->opcode_stream, &i64_const));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, i64_const));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_const_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_const_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-    uint32_t func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-    uint8_t *code_body = vm->mdle->code_bodies[func_idx];
-    size_t code_body_sz = vm->mdle->code_bodies_sz[func_idx];
     float f32_const = 0;
-    WRP_CHECK(wrp_read_f32(code_body, code_body_sz, &vm->program_counter, &f32_const));
-    WRP_CHECK(wrp_push_f32(vm, f32_const));
+    WRP_CHECK(wrp_read_f32(&vm->opcode_stream, &f32_const));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, f32_const));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_const_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_const_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_eqz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_eqz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x == 0);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_eq_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_eq_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x == y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_ne_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_ne_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x != y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_lt_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_lt_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x < y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_lt_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_lt_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = ((uint32_t)x < (uint32_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_gt_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_gt_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x > y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_gt_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_gt_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = ((uint32_t)x > (uint32_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_le_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_le_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x <= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_le_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_le_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = ((uint32_t)x <= (uint32_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_ge_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_ge_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (x >= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_ge_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_ge_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = ((uint32_t)x >= (uint32_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_eqz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_eqz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x == 0);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_eq_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_eq_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x == y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_ne_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_ne_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x != y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_lt_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_lt_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x < y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_lt_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_lt_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = ((uint64_t)x < (uint64_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_gt_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_gt_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x > y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_gt_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_gt_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = ((uint64_t)x > (uint64_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_le_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_le_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x <= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_le_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_le_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = ((uint64_t)x <= (uint64_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_ge_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_ge_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = (x >= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_ge_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_ge_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int32_t result = ((uint64_t)x >= (uint64_t)y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_eq_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_eq_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x == y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
-static uint32_t exec_f32_ne_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_ne_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x != y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_lt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_lt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x < y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_gt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_gt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x > y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_le_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_le_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x <= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_ge_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_ge_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     int32_t result = (x >= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_eq_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_eq_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x == y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_ne_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_ne_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x != y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_lt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_lt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x < y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_gt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_gt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x > y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_le_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_le_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x <= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_ge_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_ge_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     int32_t result = (x >= y);
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_clz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_clz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t operand = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &operand));
 
     uint32_t x = (uint32_t)operand;
     int32_t num_zeros = 32;
@@ -1020,16 +885,14 @@ static uint32_t exec_i32_clz_op(struct wrp_vm *vm)
         }
     }
 
-    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, num_zeros));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_ctz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_ctz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t operand = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &operand));
 
     uint32_t x = (uint32_t)operand;
     uint32_t num_zeros = 32;
@@ -1043,16 +906,14 @@ static uint32_t exec_i32_ctz_op(struct wrp_vm *vm)
         }
     }
 
-    WRP_CHECK(wrp_push_i32(vm, num_zeros));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, num_zeros));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_popcnt_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_popcnt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t operand = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &operand));
 
     uint32_t x = (uint32_t)operand;
     uint32_t num_ones = 0;
@@ -1065,67 +926,59 @@ static uint32_t exec_i32_popcnt_op(struct wrp_vm *vm)
         x >>= 1;
     }
 
-    WRP_CHECK(wrp_push_i32(vm, num_ones));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, num_ones));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_add_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_add_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x + y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_sub_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_sub_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x - y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_mul_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_mul_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x * y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_div_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_div_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I32_DIVIDE_BY_ZERO;
@@ -1136,40 +989,36 @@ static uint32_t exec_i32_div_s_op(struct wrp_vm *vm)
     }
 
     int32_t result = x / y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_div_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_div_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I32_DIVIDE_BY_ZERO;
     }
 
     int32_t result = (uint32_t)x / (uint32_t)y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_rem_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_rem_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I32_DIVIDE_BY_ZERO;
@@ -1182,173 +1031,153 @@ static uint32_t exec_i32_rem_s_op(struct wrp_vm *vm)
         result = x % y;
     }
 
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_rem_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_rem_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I32_DIVIDE_BY_ZERO;
     }
 
     int32_t result = (uint32_t)x % (uint32_t)y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_and_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_and_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x & y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_or_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_or_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x | y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_xor_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_xor_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x ^ y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_shl_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_shl_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x << y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_shr_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_shr_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = x >> y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_shr_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_shr_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     int32_t result = (uint32_t)x >> (uint32_t)y;
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_rotl_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_rotl_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     uint32_t count = ((uint32_t)y) % 32;
 
     //https://blog.regehr.org/archives/1063
     int32_t result = (((uint32_t)x) << count) | (((uint32_t)x) >> (-count & 31));
 
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_rotr_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_rotr_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int32_t y = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &y));
 
     int32_t x = 0;
-    WRP_CHECK(wrp_pop_i32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &x));
 
     uint32_t count = ((uint32_t)y) % 32;
 
     //https://blog.regehr.org/archives/1063
     int32_t result = (((uint32_t)x) >> count) | (((uint32_t)x) << (-count & 31));
 
-    WRP_CHECK(wrp_push_i32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_clz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_clz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t operand = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &operand));
 
     uint64_t x = (uint64_t)operand;
     int64_t num_zeros = 64;
@@ -1362,16 +1191,14 @@ static uint32_t exec_i64_clz_op(struct wrp_vm *vm)
         }
     }
 
-    WRP_CHECK(wrp_push_i64(vm, num_zeros));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, num_zeros));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_ctz_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_ctz_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t operand = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &operand));
 
     uint64_t x = (uint64_t)operand;
     uint64_t num_zeros = 64;
@@ -1385,16 +1212,14 @@ static uint32_t exec_i64_ctz_op(struct wrp_vm *vm)
         }
     }
 
-    WRP_CHECK(wrp_push_i64(vm, num_zeros));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, num_zeros));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_popcnt_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_popcnt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t operand = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &operand));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &operand));
 
     uint64_t x = (uint64_t)operand;
     uint64_t num_ones = 0;
@@ -1407,67 +1232,59 @@ static uint32_t exec_i64_popcnt_op(struct wrp_vm *vm)
         x >>= 1;
     }
 
-    WRP_CHECK(wrp_push_i64(vm, num_ones));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, num_ones));
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_add_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_add_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x + y;
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_sub_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_sub_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x - y;
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_mul_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_mul_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x * y;
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_div_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_div_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I64_DIVIDE_BY_ZERO;
@@ -1478,40 +1295,36 @@ static uint32_t exec_i64_div_s_op(struct wrp_vm *vm)
     }
 
     int64_t result = x / y;
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_div_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_div_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I64_DIVIDE_BY_ZERO;
     }
 
     int64_t result = (uint64_t)x / (uint64_t)y;
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_rem_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_rem_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I64_DIVIDE_BY_ZERO;
@@ -1524,20 +1337,18 @@ static uint32_t exec_i64_rem_s_op(struct wrp_vm *vm)
         result = x % y;
     }
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_rem_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_rem_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     if (y == 0) {
         return WRP_ERR_I64_DIVIDE_BY_ZERO;
@@ -1545,243 +1356,213 @@ static uint32_t exec_i64_rem_u_op(struct wrp_vm *vm)
 
     int64_t result = (uint64_t)x % (uint64_t)y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_and_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_and_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x & y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_or_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_or_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x | y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_xor_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_xor_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x ^ y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_shl_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_shl_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x << y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_shr_s_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_shr_s_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = x >> y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_shr_u_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_shr_u_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     int64_t result = (uint64_t)x >> (uint64_t)y;
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_rotl_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_rotl_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     uint64_t count = ((uint64_t)y) % 64;
 
     //https://blog.regehr.org/archives/1063
     int64_t result = (((uint64_t)x) << count) | (((uint64_t)x) >> (-count & 63));
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i64_rotr_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_rotr_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     int64_t y = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &y));
 
     int64_t x = 0;
-    WRP_CHECK(wrp_pop_i64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &x));
 
     uint64_t count = ((uint64_t)y) % 64;
 
     //https://blog.regehr.org/archives/1063
     int64_t result = (((uint64_t)x) >> count) | (((uint64_t)x) << (-count & 63));
 
-    WRP_CHECK(wrp_push_i64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_abs_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_abs_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = fabsf(x);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_neg_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_neg_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = -x;
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_ceil_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_ceil_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = ceilf(x);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_floor_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_floor_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = floorf(x);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_trunc_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_trunc_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = truncf(x);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_nearest_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_nearest_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = nearbyintf(x);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_sqrt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_sqrt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = 0;
 
@@ -1798,88 +1579,78 @@ static uint32_t exec_f32_sqrt_op(struct wrp_vm *vm)
         result = sqrtf(x);
     }
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_add_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_add_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = x + y;
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_sub_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_sub_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = x - y;
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_mul_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_mul_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = x * y;
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_div_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_div_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = x / y;
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_min_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_min_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = 0;
 
@@ -1900,20 +1671,18 @@ static uint32_t exec_f32_min_op(struct wrp_vm *vm)
         result = x < y ? x : y;
     }
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_max_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_max_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = 0;
 
@@ -1934,118 +1703,102 @@ static uint32_t exec_f32_max_op(struct wrp_vm *vm)
         result = x > y ? x : y;
     }
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f32_copy_sign_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_copy_sign_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     float y = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &y));
 
     float x = 0;
-    WRP_CHECK(wrp_pop_f32(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &x));
 
     float result = copysignf(x, y);
 
-    WRP_CHECK(wrp_push_f32(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_abs_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_abs_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = fabs(x);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_neg_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_neg_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = -x;
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_ceil_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_ceil_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = ceil(x);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_floor_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_floor_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = floor(x);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_trunc_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_trunc_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = trunc(x);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_nearest_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_nearest_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = nearbyint(x);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_sqrt_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_sqrt_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = 0;
 
@@ -2062,88 +1815,78 @@ static uint32_t exec_f64_sqrt_op(struct wrp_vm *vm)
         result = sqrt(x);
     }
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_add_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_add_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = x + y;
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_sub_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_sub_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = x - y;
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_mul_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_mul_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = x * y;
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_div_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_div_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = x / y;
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_min_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_min_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = 0;
 
@@ -2164,20 +1907,18 @@ static uint32_t exec_f64_min_op(struct wrp_vm *vm)
         result = x < y ? x : y;
     }
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_max_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_max_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = 0;
 
@@ -2198,155 +1939,153 @@ static uint32_t exec_f64_max_op(struct wrp_vm *vm)
         result = x > y ? x : y;
     }
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_f64_copy_sign_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_copy_sign_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_set_program_counter(vm, vm->program_counter + 1));
-
     double y = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &y));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &y));
 
     double x = 0;
-    WRP_CHECK(wrp_pop_f64(vm, &x));
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &x));
 
     double result = copysign(x, y);
 
-    WRP_CHECK(wrp_push_f64(vm, result));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
 
     return WRP_SUCCESS;
 }
 
-static uint32_t exec_i32_wrap_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_wrap_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_trunc_s_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_trunc_s_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_trunc_u_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_trunc_u_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_trunc_s_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_trunc_s_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_trunc_u_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_trunc_u_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_extend_s_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_extend_s_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_extend_u_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_extend_u_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_trunc_s_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_trunc_s_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_trunc_u_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_trunc_u_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_trunc_s_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_trunc_s_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_trunc_u_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_trunc_u_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_convert_s_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_convert_s_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_convert_u_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_convert_u_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_convert_s_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_convert_s_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_convert_u_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_convert_u_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_demote_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_demote_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_convert_s_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_convert_s_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_convert_u_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_convert_u_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_convert_s_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_convert_s_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_convert_u_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_convert_u_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_promote_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_promote_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i32_reinterpret_f32_op(struct wrp_vm *vm)
+static wrp_err_t exec_i32_reinterpret_f32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_i64_reinterpret_f64_op(struct wrp_vm *vm)
+static wrp_err_t exec_i64_reinterpret_f64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f32_reinterpret_i32_op(struct wrp_vm *vm)
+static wrp_err_t exec_f32_reinterpret_i32_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t exec_f64_reinterpret_i64_op(struct wrp_vm *vm)
+static wrp_err_t exec_f64_reinterpret_i64_op(wrp_vm_t *vm)
 {
     return WRP_ERR_UNKNOWN;
 }
 
-static uint32_t (*const exec_jump_table[])(struct wrp_vm *vm) = {
-        [OP_UNREACHABLE] = exec_unreachable_op,
+static wrp_err_t (*const exec_jump_table[])(wrp_vm_t *vm) = {
+    [OP_UNREACHABLE] = exec_unreachable_op,
     [OP_NOOP] = exec_no_op,
     [OP_BLOCK] = exec_block_op,
     [OP_LOOP] = exec_loop_op,
@@ -2541,32 +2280,28 @@ static uint32_t (*const exec_jump_table[])(struct wrp_vm *vm) = {
     //clang-format brace hack
 };
 
-uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx)
+wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx)
 {
-    WRP_CHECK(wrp_push_call(vm, func_idx));
-
-    vm->program_counter = 0;
+    WRP_CHECK(wrp_stk_exec_push_call(vm, func_idx));
 
     while (vm->call_stk_head >= 0) {
-        uint32_t current_func_idx = vm->call_stk_func_idx[vm->call_stk_head];
-        uint8_t *code_body = vm->mdle->code_bodies[current_func_idx];
-        size_t code_body_sz = vm->mdle->code_bodies_sz[current_func_idx];
+        if (vm->opcode_stream.bytes == NULL) {
+            return WRP_ERR_INVALID_INSTRUCTION_STREAM;
+        }
 
-        if (vm->program_counter >= code_body_sz) {
+        if (vm->opcode_stream.pos >= vm->opcode_stream.sz) {
             return WRP_ERR_INSTRUCTION_OVERFLOW;
         }
 
-        uint8_t opcode = code_body[vm->program_counter];
+        uint8_t opcode = vm->opcode_stream.bytes[vm->opcode_stream.pos++];
 
         if (opcode >= NUM_OPCODES) {
             return WRP_ERR_INVALID_OPCODE;
         }
 
-        uint32_t error = exec_jump_table[opcode](vm);
-
-        if (error != WRP_SUCCESS) {
+        if((vm->err = exec_jump_table[opcode](vm)) != WRP_SUCCESS){
             //restore program counter
-            return error;
+            return vm->err;
         }
     }
 

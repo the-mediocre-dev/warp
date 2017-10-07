@@ -19,42 +19,43 @@
 #include <stddef.h>
 #include <stdint.h>
 
-uint32_t wrp_seek(uint8_t *buf, size_t buf_sz, size_t *pos, size_t new_pos);
+#include "warp-types.h"
 
-uint32_t wrp_end_of_buf(uint8_t *buf, size_t buf_sz, size_t pos);
+typedef struct wrp_buf {
+    uint8_t *bytes;
+    size_t sz;
+    size_t pos;
+} wrp_buf_t;
 
-uint32_t wrp_skip(uint8_t *buf, size_t buf_sz, size_t *pos, size_t num_bytes);
+wrp_err_t wrp_seek(wrp_buf_t *buf, size_t new_pos);
 
-uint32_t wrp_read_uint8(uint8_t *buf, size_t buf_sz, size_t *pos, uint8_t *value);
+wrp_err_t wrp_end_of_buf(wrp_buf_t *buf);
 
-uint32_t wrp_read_uint32(uint8_t *buf, size_t buf_sz, size_t *pos, uint32_t *value);
+wrp_err_t wrp_skip(wrp_buf_t *buf, size_t num_bytes);
 
-uint32_t wrp_read_varui1(uint8_t *buf, size_t buf_sz, size_t *pos, uint8_t *value);
+wrp_err_t wrp_read_uint8(wrp_buf_t *buf, uint8_t *out_value);
 
-uint32_t wrp_read_varui7(uint8_t *buf, size_t buf_sz, size_t *pos, uint8_t *value);
+wrp_err_t wrp_read_uint32(wrp_buf_t *buf, uint32_t *out_value);
 
-uint32_t wrp_read_varui32(uint8_t *buf, size_t buf_sz, size_t *pos, uint32_t *value);
+wrp_err_t wrp_read_varui1(wrp_buf_t *buf, uint8_t *out_value);
 
-uint32_t wrp_read_vari7(uint8_t *buf, size_t buf_sz, size_t *pos, int8_t *value);
+wrp_err_t wrp_read_varui7(wrp_buf_t *buf, uint8_t *out_value);
 
-uint32_t wrp_read_vari32(uint8_t *buf, size_t buf_sz, size_t *pos, int32_t *value);
+wrp_err_t wrp_read_varui32(wrp_buf_t *buf, uint32_t *out_value);
 
-uint32_t wrp_read_vari64(uint8_t *buf, size_t buf_sz, size_t *pos, int64_t *value);
+wrp_err_t wrp_read_vari7(wrp_buf_t *buf, int8_t *out_value);
 
-uint32_t wrp_read_f32(uint8_t *buf, size_t buf_sz, size_t *pos, float *value);
+wrp_err_t wrp_read_vari32(wrp_buf_t *buf, int32_t *out_value);
 
-uint32_t wrp_read_f64(uint8_t *buf, size_t buf_sz, size_t *pos, double *value);
+wrp_err_t wrp_read_vari64(wrp_buf_t *buf, int64_t *out_value);
 
-uint32_t wrp_read_string(uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos,
-    char *str,
+wrp_err_t wrp_read_f32(wrp_buf_t *buf, float *out_value);
+
+wrp_err_t wrp_read_f64(wrp_buf_t *buf, double *out_value);
+
+wrp_err_t wrp_read_string(wrp_buf_t *buf,
+    char *out_str,
     size_t str_sz,
-    uint32_t *str_len);
+    uint32_t *out_str_len);
 
-uint32_t wrp_read_limits(uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos,
-    uint32_t *min,
-    uint32_t *max,
-    uint32_t default_max);
+wrp_err_t wrp_read_limits(wrp_buf_t *buf, uint32_t *out_min, uint32_t *out_max);

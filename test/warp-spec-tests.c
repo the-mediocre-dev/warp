@@ -17,12 +17,12 @@
 #include <stdalign.h>
 #include <stdint.h>
 
-#include "test-common.h"
 #include "f32-tests.h"
 #include "f64-tests.h"
 #include "i32-tests.h"
 #include "i64-tests.h"
 #include "if-tests.h"
+#include "test-common.h"
 
 #define MAX_FILE_PATH 4096
 
@@ -40,20 +40,20 @@ void print_footer(uint32_t passed, uint32_t failed)
     printf(GREEN_TEXT("passed:%d  "), passed);
     printf(RED_TEXT("failed:%d\n\n"), failed);
 
-    if(failed == 0){
+    if (failed == 0) {
         printf(GREEN_TEXT("spec tests passed"));
-    }else{
+    } else {
         printf(RED_TEXT("spec tests failed"));
     }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     ASSERT(argc >= 2, "invalid args");
 
     print_header();
 
-    struct wrp_vm *vm = wrp_open_vm(test_alloc, test_free);
+    wrp_vm_t *vm = wrp_open_vm(test_alloc, test_free);
     ASSERT(vm, "vm failed to initialise");
 
     uint8_t *path_buf = test_alloc(MAX_FILE_PATH + 1, alignof(uint8_t));
@@ -74,5 +74,3 @@ int main(int argc, char** argv)
 
     return (failed == 0) ? 0 : 1;
 }
-
-

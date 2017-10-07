@@ -38,7 +38,7 @@ static bool make_path(const char *path, const char *file, uint8_t *buf, size_t b
     return true;
 }
 
-static bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz)
+static bool load_buf(uint8_t *path, wrp_buf_t *buf)
 {
     FILE *file = fopen((char *)path, "rb");
 
@@ -54,25 +54,27 @@ static bool load_buf(uint8_t *path, uint8_t **buf, size_t *buf_sz)
         return false;
     }
 
-    *buf = malloc(len);
+    buf->bytes = malloc(len);
 
-    if (*buf == NULL) {
+    if (buf->bytes == NULL) {
         fclose(file);
         return false;
     }
 
-    *buf_sz = len;
+    buf->sz = len;
 
     rewind(file);
-    fread(*buf, *buf_sz, 1, file);
+    fread(buf->bytes, buf->sz, 1, file);
     fclose(file);
     return true;
 }
 
 void *test_alloc(size_t size, size_t align)
 {
-    void *ptr = malloc(size + align);
-    memset(ptr, 0, size);
+    size_t actual_sz = size + align;
+
+    void *ptr = malloc(actual_sz);
+    memset(ptr, 0, actual_sz);
 
     //0 alignment not supported. Need the extra byte for storing adjustment.
     size_t actual_align = align > 1 ? align : 1;
@@ -104,7 +106,7 @@ void test_free(void *ptr)
     free(unaligned_ptr);
 }
 
-void load_mdle(struct wrp_vm *vm,
+void load_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
@@ -114,18 +116,17 @@ void load_mdle(struct wrp_vm *vm,
 
     ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
 
-    uint8_t *buf = NULL;
-    size_t buf_sz = 0;
-    ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load \"%s\"", mdle_name);
+    wrp_buf_t buf = {0};
+    ASSERT(load_buf(path_buf, &buf), "failed to load \"%s\"", mdle_name);
 
-    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
+    wrp_wasm_mdle_t *mdle = wrp_instantiate_mdle(vm, &buf);
     ASSERT(mdle, "failed to instantiate \"%s\"", mdle_name);
     ASSERT(wrp_attach_mdle(vm, mdle), "failed to attach module \"%s\"", mdle_name);
 
-    free(buf);
+    free(buf.bytes);
 }
 
-uint32_t validate_mdle(struct wrp_vm *vm,
+uint32_t validate_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
@@ -133,24 +134,23 @@ uint32_t validate_mdle(struct wrp_vm *vm,
 {
     ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
 
-    uint8_t *buf = NULL;
-    size_t buf_sz = 0;
-    ASSERT(load_buf(path_buf, &buf, &buf_sz), "failed to load \"%s\"", mdle_name);
+    wrp_buf_t buf = {0};
+    ASSERT(load_buf(path_buf, &buf), "failed to load \"%s\"", mdle_name);
 
-    struct wrp_wasm_mdle *mdle = wrp_instantiate_mdle(vm, buf, buf_sz);
+    wrp_wasm_mdle_t *mdle = wrp_instantiate_mdle(vm, &buf);
 
     if(mdle != NULL){
         wrp_destroy_mdle(vm, mdle);
     }
 
-    return vm->error;
+    return vm->err;
 }
 
-void unload_mdle(struct wrp_vm *vm)
+void unload_mdle(wrp_vm_t *vm)
 {
     printf("unloading test module\n\n");
 
-    struct wrp_wasm_mdle *mdle = vm->mdle;
+    wrp_wasm_mdle_t *mdle = vm->mdle;
     ASSERT(wrp_detach_mdle(vm), "failed to detach modle");
     wrp_destroy_mdle(vm, mdle);
 }

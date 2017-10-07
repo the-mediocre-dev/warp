@@ -38,16 +38,16 @@ void *test_alloc(size_t size, size_t align);
 
 void test_free(void *ptr);
 
-void load_mdle(struct wrp_vm *vm,
+void load_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
     const char *mdle_name);
 
-uint32_t validate_mdle(struct wrp_vm *vm,
+uint32_t validate_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
     const char *mdle_name);
 
-void unload_mdle(struct wrp_vm *vm);
+void unload_mdle(wrp_vm_t *vm);

@@ -20,8 +20,6 @@
 
 #include "warp-error.h"
 
-#define WRP_ALIGN_64(x) (((x + 63) / 64) * 64)
-
 #define WRP_CHECK(x)                \
 {                                   \
     uint32_t error = x;             \

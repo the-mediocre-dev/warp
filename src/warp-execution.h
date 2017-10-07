@@ -18,6 +18,6 @@
 
 #include <stdint.h>
 
-struct wrp_vm;
+#include "warp-types.h"
 
-uint32_t wrp_exec(struct wrp_vm *vm, uint32_t func_idx);
+wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx);

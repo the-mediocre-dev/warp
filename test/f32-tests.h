@@ -20,9 +20,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct wrp_vm;
+typedef struct wrp_vm wrp_vm_t;
 
-void run_f32_tests(struct wrp_vm *vm,
+void run_f32_tests(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,

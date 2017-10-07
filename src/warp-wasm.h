@@ -21,6 +21,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "warp-types.h"
 #include "warp-config.h"
 
 // section encodings
@@ -41,6 +42,7 @@
 #define TYPE_FUNCTION           0x60
 
 // type encodings
+#define UNKNOWN                 0x00    // Used for polymorphic type checking
 #define I32                     0x7f    // -0x01
 #define I64                     0x7e    // -0x02
 #define F32                     0x7d    // -0x03
@@ -70,6 +72,13 @@
 #define BLOCK_FUNC              0x01
 #define BLOCK_IF                0x02
 #define BLOCK_LOOP              0x03
+
+typedef enum wrp_block{
+    BLOCK_TYPE = 0x00,
+    FUNC_TYPE = 0x01,
+    IF_TYPE = 0x02,
+    LOOP_TYPE = 0x03
+} wrp_block_t;
 
 // op codes
 #define OP_UNREACHABLE          0x00
@@ -266,48 +275,38 @@
 #define OP_F64_REINTERPRET_I64  0xBF
 #define NUM_OPCODES             0xC0
 
-struct wrp_wasm_meta {
-    size_t types[MAX_TYPES];
+typedef struct wrp_wasm_meta {
     uint32_t num_types;
     uint32_t num_type_params;
     uint32_t num_type_returns;
-    size_t funcs[MAX_FUNCS];
     uint32_t num_funcs;
-    size_t tables[MAX_TABLES];
     uint32_t num_tables;
-    size_t memories[MAX_MEMORIES];
     uint32_t num_memories;
-    size_t globals[MAX_GLOBALS];
     uint32_t num_globals;
-    size_t exports[MAX_EXPORTS];
     uint32_t num_exports;
-    uint32_t export_name_len;
-    bool start_func_present;
-    size_t start_func;
-    size_t elements[MAX_ELEMENT_SEGMENTS];
+    size_t export_name_buf_sz;
     uint32_t num_elements;
-    size_t codes[MAX_FUNCS];
     uint32_t num_code_locals;
-    size_t code_body_sz;
+    size_t code_buf_sz;
     uint32_t num_block_ops;
     uint32_t num_if_ops;
-};
+} wrp_wasm_meta_t;
 
-struct wrp_wasm_mdle {
+typedef struct wrp_wasm_mdle {
     //force struct alignment at member level, as struct level
     //usage of alignas only works in C++, for some magical reason
     alignas(64) uint8_t *forms;
-    uint8_t *param_types;
+    int8_t *param_types;
     uint32_t *param_type_offsets;
     uint32_t *param_counts;
-    uint8_t *result_types;
+    int8_t *result_types;
     uint32_t *result_type_offsets;
     uint32_t *result_counts;
     uint32_t num_types;
     uint32_t *func_type_idxs;
     uint32_t num_funcs;
     uint64_t *global_values;
-    uint8_t *global_types;
+    int8_t *global_types;
     uint32_t num_globals;
     uint32_t start_func_idx;
     bool start_func_present;
@@ -315,49 +314,49 @@ struct wrp_wasm_mdle {
     uint32_t *export_name_offsets;
     uint32_t *export_func_idxs;
     uint32_t num_exports;
-    uint8_t *local_types;
+    int8_t *local_types;
     uint32_t *local_type_offsets;
     uint32_t *local_counts;
+
     uint8_t *code;
     uint8_t **code_bodies;
     size_t *code_bodies_sz;
+
     size_t *block_addresses;
     size_t *block_labels;
     uint32_t *block_offsets;
     uint32_t *block_counts;
+
     size_t *if_addresses;
     size_t *if_labels;
     size_t *else_addresses;
     uint32_t *if_offsets;
     uint32_t *if_counts;
-};
+} wrp_wasm_mdle_t;
 
-size_t wrp_mdle_sz(struct wrp_wasm_meta *meta);
+size_t wrp_mdle_sz(wrp_wasm_meta_t *meta);
 
-void wrp_mdle_init(struct wrp_wasm_mdle *mdle, struct wrp_wasm_meta *meta);
+void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle);
 
 bool wrp_is_valid_wasm_type(int8_t type);
 
-bool wrp_is_valid_block_type(int8_t type);
+bool wrp_is_valid_block_signature(int8_t type);
 
 bool wrp_is_valid_value_type(int8_t type);
 
-uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_check_meta(wrp_wasm_meta_t *meta);
+
+wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t block_address,
-    uint32_t *block_idx);
+    uint32_t *out_block_idx);
 
-uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t if_address,
-    uint32_t *if_idx);
+    uint32_t *out_if_idx);
 
-uint32_t wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
     const char *func_name,
-    uint32_t *func_idx);
+    uint32_t *out_func_idx);
 
-uint32_t wrp_check_immediates(uint8_t opcode,
-    uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos,
-    struct wrp_wasm_meta *meta);

@@ -16,66 +16,80 @@
 
 #pragma once
 
+//first include to check compiler
+#include "warp-compiler-check.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include "warp-buf.h"
 #include "warp-config.h"
-#include "warp-compiler-check.h"
 #include "warp-error.h"
 #include "warp-stack-ops.h"
+#include "warp-types.h"
 #include "warp-wasm.h"
-
-struct wrp_vm;
-struct wrp_wasm_mdle;
 
 typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
 
 typedef void (*wrp_free_fn)(void *ptr);
 
 typedef void (*wrp_thunk_fn)(uint64_t *args,
-    uint8_t arg_types,
+    uint8_t *arg_types,
     uint32_t num_args,
-    uint64_t returns,
-    uint8_t return_types,
+    uint64_t *returns,
+    uint8_t *return_types,
     uint32_t num_returns);
 
-struct wrp_vm {
-    struct wrp_wasm_mdle *mdle;
-    uint32_t error;
-    size_t program_counter;
+typedef struct wrp_oprd {
+    uint64_t value;
+    uint8_t type;
+} wrp_oprd_t;
+
+typedef struct wrp_ctrl_frame {
+    wrp_block_t type;
+    size_t address;
+    size_t label;
+    int8_t signature;
+    int32_t oprd_stk_ptr;
+    bool unreachable;
+} wrp_ctrl_frame_t;
+
+typedef struct wrp_call_frame {
+    uint32_t func_idx;
+    int32_t oprd_stk_ptr;
+    int32_t ctrl_stk_ptr;
+    size_t return_ptr;
+} wrp_call_frame_t;
+
+typedef struct wrp_vm {
+    wrp_wasm_mdle_t *mdle;
     wrp_alloc_fn alloc_fn;
     wrp_free_fn free_fn;
-    uint64_t operand_stk_values[WRP_OPERAND_STK_SZ];
-    int8_t operand_stk_types[WRP_OPERAND_STK_SZ];
-    int32_t operand_stk_head;
-    size_t block_stk_labels[WRP_BLOCK_STK_SZ];
-    int32_t block_stk_operand_ptrs[WRP_CALL_STK_SZ];
-    int8_t block_stk_types[WRP_BLOCK_STK_SZ];
-    int32_t block_stk_head;
-    uint32_t call_stk_func_idx[WRP_CALL_STK_SZ];
-    int32_t call_stk_operand_ptrs[WRP_CALL_STK_SZ];
-    int32_t call_stk_block_ptrs[WRP_CALL_STK_SZ];
-    size_t call_stk_return_ptrs[WRP_CALL_STK_SZ];
+    wrp_oprd_t oprd_stk[WRP_OPERAND_STK_SZ];
+    int32_t oprd_stk_head;
+    wrp_ctrl_frame_t ctrl_stk[WRP_BLOCK_STK_SZ];
+    int32_t ctrl_stk_head;
+    wrp_call_frame_t call_stk[WRP_CALL_STK_SZ];
     int32_t call_stk_head;
-};
+    wrp_buf_t opcode_stream;
+    wrp_err_t err;
+} wrp_vm_t;
 
-struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn);
+wrp_vm_t *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn);
 
-struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
-    uint8_t *buf,
-    size_t buf_sz);
+wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf);
 
-void wrp_destroy_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
+void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle);
 
-bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle);
+bool wrp_attach_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle);
 
-bool wrp_detach_mdle(struct wrp_vm *vm);
+bool wrp_detach_mdle(wrp_vm_t *vm);
 
-bool wrp_start(struct wrp_vm *vm);
+bool wrp_start(wrp_vm_t *vm);
 
-bool wrp_call(struct wrp_vm *vm, uint32_t func_idx);
+bool wrp_call(wrp_vm_t *vm, uint32_t func_idx);
 
-void wrp_reset_vm(struct wrp_vm *vm);
+void wrp_reset_vm(wrp_vm_t *vm);
 
-void wrp_close_vm(struct wrp_vm *vm);
+void wrp_close_vm(wrp_vm_t *vm);

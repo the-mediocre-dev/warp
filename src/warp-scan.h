@@ -19,9 +19,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct wrp_vm;
-struct wrp_wasm_meta;
+#include "warp-types.h"
 
-uint32_t wrp_validate_mdle(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta);
+wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta);

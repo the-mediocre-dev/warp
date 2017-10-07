@@ -21,128 +21,139 @@
 #include "warp-macros.h"
 #include "warp-wasm.h"
 
-size_t wrp_mdle_sz(struct wrp_wasm_meta *meta)
+#define ALIGN_64(x) (((x + 63) / 64) * 64)
+
+size_t wrp_mdle_sz(wrp_wasm_meta_t *meta)
 {
-    size_t mdle_sz = sizeof(struct wrp_wasm_mdle);
-    mdle_sz += WRP_ALIGN_64(meta->num_types * sizeof(uint8_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_type_params * sizeof(uint8_t *));
-    mdle_sz += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_type_returns * sizeof(uint8_t *));
-    mdle_sz += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_globals * sizeof(uint64_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_globals * sizeof(uint8_t));
-    mdle_sz += WRP_ALIGN_64(meta->export_name_len * sizeof(char));
-    mdle_sz += WRP_ALIGN_64(meta->num_exports * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_exports * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_code_locals * sizeof(uint8_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->code_body_sz * sizeof(uint8_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(size_t *));
-    mdle_sz += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    size_t mdle_sz = sizeof(wrp_wasm_mdle_t);
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint8_t));
+
+    mdle_sz += ALIGN_64(meta->num_type_params * sizeof(int8_t *));
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->num_type_returns * sizeof(int8_t *));
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->num_globals * sizeof(uint64_t));
+    mdle_sz += ALIGN_64(meta->num_globals * sizeof(int8_t));
+
+    mdle_sz += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
+    mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->num_code_locals * sizeof(int8_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(size_t));
+
+    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
     return mdle_sz;
 }
 
-void wrp_mdle_init(struct wrp_wasm_mdle *mdle, struct wrp_wasm_meta *meta)
+void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle)
 {
-    uint8_t *ptr = (uint8_t *)mdle;
-    size_t offset = sizeof(struct wrp_wasm_mdle);
+    uint8_t *ptr = (uint8_t *)out_mdle;
+    size_t offset = sizeof(wrp_wasm_mdle_t);
 
-    mdle->forms = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_types * sizeof(uint8_t));
+    out_mdle->forms = (uint8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(uint8_t));
 
-    mdle->param_types = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_type_params * sizeof(uint8_t));
+    out_mdle->param_types = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_type_params * sizeof(uint8_t));
 
-    mdle->param_type_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->param_type_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
 
-    mdle->param_counts = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->param_counts = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
 
-    mdle->result_types = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_type_returns * sizeof(uint8_t));
+    out_mdle->result_types = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_type_returns * sizeof(uint8_t));
 
-    mdle->result_type_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->result_type_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
 
-    mdle->result_counts = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->result_counts = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
 
-    mdle->func_type_idxs = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->func_type_idxs = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->global_values = (uint64_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_globals * sizeof(uint64_t));
+    out_mdle->global_values = (uint64_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_globals * sizeof(uint64_t));
 
-    mdle->global_types = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_globals * sizeof(uint8_t));
+    out_mdle->global_types = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_globals * sizeof(uint8_t));
 
-    mdle->export_names = (char *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->export_name_len * sizeof(char));
+    out_mdle->export_names = (char *)(ptr + offset);
+    offset += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
 
-    mdle->export_name_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_exports * sizeof(uint32_t));
+    out_mdle->export_name_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_exports * sizeof(uint32_t));
 
-    mdle->export_func_idxs = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_exports * sizeof(uint32_t));
+    out_mdle->export_func_idxs = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_exports * sizeof(uint32_t));
 
-    mdle->local_types = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_code_locals * sizeof(uint8_t));
+    out_mdle->local_types = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_code_locals * sizeof(uint8_t));
 
-    mdle->local_type_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->local_type_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->local_counts = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->local_counts = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->code = (uint8_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->code_body_sz * sizeof(uint8_t));
+    out_mdle->code = (uint8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
 
-    mdle->code_bodies = (uint8_t **)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
+    out_mdle->code_bodies = (uint8_t **)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
 
-    mdle->code_bodies_sz = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(size_t));
+    out_mdle->code_bodies_sz = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(size_t));
 
-    mdle->block_addresses = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    out_mdle->block_addresses = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
 
-    mdle->block_labels = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    out_mdle->block_labels = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
 
-    mdle->block_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->block_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->block_counts = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->block_counts = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->if_addresses = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    out_mdle->if_addresses = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
 
-    mdle->else_addresses = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    out_mdle->else_addresses = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
 
-    mdle->if_labels = (size_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    out_mdle->if_labels = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
 
-    mdle->if_offsets = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->if_offsets = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 
-    mdle->if_counts = (uint32_t *)(ptr + offset);
-    offset += WRP_ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->if_counts = (uint32_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
 }
 
 bool wrp_is_valid_wasm_type(int8_t type)
@@ -162,9 +173,9 @@ bool wrp_is_valid_wasm_type(int8_t type)
     }
 }
 
-bool wrp_is_valid_block_type(int8_t type)
+bool wrp_is_valid_block_signature(int8_t signature)
 {
-    switch (type) {
+    switch (signature) {
     case I32:
     case I64:
     case F32:
@@ -191,7 +202,48 @@ bool wrp_is_valid_value_type(int8_t type)
     }
 }
 
-uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_check_meta(wrp_wasm_meta_t *meta)
+{
+    if (meta->num_types > MAX_TYPES) {
+        return WRP_ERR_MDLE_TYPE_OVERFLOW;
+    }
+
+    if (meta->num_funcs > MAX_FUNCS) {
+        return WRP_ERR_MDLE_FUNC_OVERFLOW;
+    }
+
+    if (meta->num_tables > MAX_TABLES) {
+        return WRP_ERR_MDLE_TABLE_OVERFLOW;
+    }
+
+    if (meta->num_memories > MAX_MEMORIES) {
+        return WRP_ERR_MDLE_MEMORY_OVERFLOW;
+    }
+
+    if (meta->num_globals > MAX_GLOBALS) {
+        return WRP_ERR_MDLE_GLOBAL_OVERFLOW;
+    }
+
+    if (meta->num_exports > MAX_EXPORTS) {
+        return WRP_ERR_MDLE_EXPORT_OVERFLOW;
+    }
+
+    if (meta->num_elements > MAX_ELEMENT_SEGMENTS) {
+        return WRP_ERR_MDLE_TYPE_OVERFLOW;
+    }
+
+    if (meta->num_code_locals > MAX_LOCALS) {
+        return WRP_ERR_MDLE_LOCAL_OVERFLOW;
+    }
+
+    if (meta->code_buf_sz > MAX_CODE_SIZE) {
+        return WRP_ERR_MDLE_CODE_OVERFLOW;
+    }
+
+    return WRP_SUCCESS;
+}
+
+wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t block_address,
     uint32_t *block_idx)
@@ -206,7 +258,7 @@ uint32_t wrp_get_block_idx(struct wrp_wasm_mdle *mdle,
     return WRP_ERR_UNKNOWN_BLOCK;
 }
 
-uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t if_address,
     uint32_t *if_idx)
@@ -221,7 +273,7 @@ uint32_t wrp_get_if_idx(struct wrp_wasm_mdle *mdle,
     return WRP_ERR_UNKNOWN_IF;
 }
 
-uint32_t wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
+wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
     const char *func_name,
     uint32_t *func_idx)
 {
@@ -235,101 +287,4 @@ uint32_t wrp_get_func_idx(struct wrp_wasm_mdle *mdle,
     }
 
     return WRP_ERR_UNKNOWN_FUNC;
-}
-
-uint32_t wrp_check_immediates(uint8_t opcode,
-    uint8_t *buf,
-    size_t buf_sz,
-    size_t *pos,
-    struct wrp_wasm_meta *meta)
-{
-    if (opcode >= OP_BLOCK && opcode <= OP_IF) {
-        int8_t block_type = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &block_type));
-
-        //only void block supported in WASM v1
-        if (!wrp_is_valid_block_type(block_type)) {
-            return WRP_ERR_INVALID_BLOCK_TYPE;
-        }
-    } else if (opcode >= OP_BR && opcode <= OP_BR_IF) {
-        uint32_t relative_depth = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &relative_depth));
-    } else if (opcode == OP_BR_TABLE) {
-        uint32_t target_count = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target_count));
-
-        for (uint32_t i = 0; i < target_count; i++) {
-            uint32_t target = 0;
-            WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &target));
-        }
-
-        uint32_t default_target = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &default_target));
-
-        if(target_count > MAX_BRANCH_TABLE_SIZE){
-            return WRP_ERR_MDLE_BRANCH_TABLE_OVERFLOW;
-        }
-    } else if (opcode == OP_CALL) {
-        uint32_t func_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &func_idx));
-
-        if (func_idx >= meta->num_funcs) {
-            return WRP_ERR_INVALID_FUNC_IDX;
-        }
-    } else if (opcode == OP_CALL_INDIRECT) {
-        uint32_t type_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &type_idx));
-
-        if (type_idx >= meta->num_types) {
-            return WRP_ERR_INVALID_TYPE_IDX;
-        }
-
-        int8_t indirect_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &indirect_reserved));
-
-        if (indirect_reserved != 0) {
-            return WRP_ERR_INVALID_RESERVED;
-        }
-    } else if (opcode >= OP_GET_LOCAL && opcode <= OP_SET_LOCAL) {
-        uint32_t local_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &local_idx));
-
-        //TODO validate local idx
-    } else if (opcode >= OP_GET_GLOBAL && opcode <= OP_SET_GLOBAL) {
-        uint32_t global_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &global_idx));
-
-        if (global_idx >= meta->num_globals) {
-            return WRP_ERR_INVALID_GLOBAL_IDX;
-        }
-    } else if (opcode >= OP_I32_LOAD && opcode <= OP_I64_STORE_32) {
-        uint32_t memory_immediate_flags = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_flags));
-
-        uint32_t memory_immediate_offset = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, pos, &memory_immediate_offset));
-
-        //TODO validate memory immediate
-    } else if (opcode >= OP_CURRENT_MEMORY && opcode <= OP_GROW_MEMORY) {
-        int8_t memory_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, buf_sz, pos, &memory_reserved));
-
-        if (memory_reserved != 0) {
-            return WRP_ERR_INVALID_RESERVED;
-        }
-    } else if (opcode == OP_I32_CONST) {
-        int32_t i32_const = 0;
-        WRP_CHECK(wrp_read_vari32(buf, buf_sz, pos, &i32_const));
-    } else if (opcode == OP_I64_CONST) {
-        int64_t i64_const = 0;
-        WRP_CHECK(wrp_read_vari64(buf, buf_sz, pos, &i64_const));
-    } else if (opcode == OP_F32_CONST) {
-        float f32_const = 0;
-        WRP_CHECK(wrp_read_f32(buf, buf_sz, pos, &f32_const));
-    } else if (opcode == OP_F64_CONST) {
-        double f64_const = 0;
-        WRP_CHECK(wrp_read_f64(buf, buf_sz, pos, &f64_const));
-    }
-
-    return WRP_SUCCESS;
 }

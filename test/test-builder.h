@@ -14,16 +14,21 @@
  *  limitations under the License.
  */
 
-#define TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name, expected_error, passed, failed) \
-    {                                                                                                  \
-        uint32_t error = validate_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);                     \
-                                                                                                       \
-        if (error == expected_error) {                                                                 \
-            passed++;                                                                                  \
-        } else {                                                                                       \
-            failed++;                                                                                  \
-            printf("invalid mdle test %s failed\n", mdle_name);                                        \
-        }                                                                                              \
+#pragma once
+
+#define TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name, expected_err, passed, failed)                                                 \
+    {                                                                                                                                                \
+        wrp_reset_vm(vm);                                                                                                                            \
+                                                                                                                                                     \
+        wrp_err_t err = validate_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);                                                                    \
+                                                                                                                                                     \
+        if (err == expected_err) {                                                                                                                   \
+            passed++;                                                                                                                                \
+            printf("invalid module test %s passed\n", mdle_name);                                                                                    \
+        } else {                                                                                                                                     \
+            failed++;                                                                                                                                \
+            printf("invalid module test %s failed. Expected: \"%s\", Actual \"%s\":\n", mdle_name, wrp_debug_err(expected_err), wrp_debug_err(err)); \
+        }                                                                                                                                            \
     }
 
 #define START_FUNC_TESTS(vm, func)                                             \
@@ -46,28 +51,28 @@
         wrp_reset_vm(vm); \
         bool success = true;
 
-#define PUSH_I32(vm, value)                                  \
-                                                             \
-    if (success && wrp_push_i32(vm, value) != WRP_SUCCESS) { \
-        success = false;                                     \
+#define PUSH_I32(vm, value)                                           \
+                                                                      \
+    if (success && wrp_stk_exec_push_i32(vm, value) != WRP_SUCCESS) { \
+        success = false;                                              \
     }
 
-#define PUSH_I64(vm, value)                                  \
-                                                             \
-    if (success && wrp_push_i64(vm, value) != WRP_SUCCESS) { \
-        success = false;                                     \
+#define PUSH_I64(vm, value)                                           \
+                                                                      \
+    if (success && wrp_stk_exec_push_i64(vm, value) != WRP_SUCCESS) { \
+        success = false;                                              \
     }
 
-#define PUSH_F32(vm, value)                                  \
-                                                             \
-    if (success && wrp_push_f32(vm, value) != WRP_SUCCESS) { \
-        success = false;                                     \
+#define PUSH_F32(vm, value)                                           \
+                                                                      \
+    if (success && wrp_stk_exec_push_f32(vm, value) != WRP_SUCCESS) { \
+        success = false;                                              \
     }
 
-#define PUSH_F64(vm, value)                                  \
-                                                             \
-    if (success && wrp_push_f64(vm, value) != WRP_SUCCESS) { \
-        success = false;                                     \
+#define PUSH_F64(vm, value)                                           \
+                                                                      \
+    if (success && wrp_stk_exec_push_f64(vm, value) != WRP_SUCCESS) { \
+        success = false;                                              \
     }
 
 #define CALL(vm)                              \
@@ -76,160 +81,160 @@
         success = false;                      \
     }
 
-#define CALL_AND_TRAP(vm, expected_error)         \
-                                                  \
-    if (success && wrp_call(vm, func_idx)) {      \
-        success = false;                          \
-    }                                             \
-                                                  \
-    if (success && vm->error != expected_error) { \
-        success = false;                          \
+#define CALL_AND_TRAP(vm, expected_err)       \
+                                              \
+    if (success && wrp_call(vm, func_idx)) {  \
+        success = false;                      \
+    }                                         \
+                                              \
+    if (success && vm->err != expected_err) { \
+        success = false;                      \
     }
 
-#define POP_I32(vm, result)                                  \
-                                                             \
-    int32_t value = 0;                                       \
-    if (success && wrp_pop_i32(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && value != (int32_t)result) {               \
-        success = false;                                     \
+#define POP_I32(vm, result)                                           \
+                                                                      \
+    int32_t value = 0;                                                \
+    if (success && wrp_stk_exec_pop_i32(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && value != (int32_t)result) {                        \
+        success = false;                                              \
     }
 
-#define POP_I64(vm, result)                                  \
-                                                             \
-    int64_t value = 0;                                       \
-    if (success && wrp_pop_i64(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && value != (int64_t)result) {               \
-        success = false;                                     \
+#define POP_I64(vm, result)                                           \
+                                                                      \
+    int64_t value = 0;                                                \
+    if (success && wrp_stk_exec_pop_i64(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && value != (int64_t)result) {                        \
+        success = false;                                              \
     }
 
-#define POP_F32(vm, result)                                  \
-                                                             \
-    float value = 0;                                         \
-    if (success && wrp_pop_f32(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && value != result) {                        \
-        success = false;                                     \
+#define POP_F32(vm, result)                                           \
+                                                                      \
+    float value = 0;                                                  \
+    if (success && wrp_stk_exec_pop_f32(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && value != result) {                                 \
+        success = false;                                              \
     }
 
-#define POP_F32_BITWISE(vm, result)                          \
-                                                             \
-    float value = 0;                                         \
-    if (success && wrp_pop_f32(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success) {                                           \
-        float result_value = result;                         \
-        uint32_t int_value = *((uint32_t *)&value);          \
-        uint32_t int_result = *((uint32_t *)&result_value);  \
-                                                             \
-        if (int_value != int_result) {                       \
-            success = false;                                 \
-        }                                                    \
+#define POP_F32_BITWISE(vm, result)                                   \
+                                                                      \
+    float value = 0;                                                  \
+    if (success && wrp_stk_exec_pop_f32(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success) {                                                    \
+        float result_value = result;                                  \
+        uint32_t int_value = *((uint32_t *)&value);                   \
+        uint32_t int_result = *((uint32_t *)&result_value);           \
+                                                                      \
+        if (int_value != int_result) {                                \
+            success = false;                                          \
+        }                                                             \
     }
 
-#define POP_F32_ARITHMETIC_NAN(vm)                           \
-                                                             \
-    float value = 0;                                         \
-    if (success && wrp_pop_f32(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && !isnan(value)) {                          \
-        success = false;                                     \
+#define POP_F32_ARITHMETIC_NAN(vm)                                    \
+                                                                      \
+    float value = 0;                                                  \
+    if (success && wrp_stk_exec_pop_f32(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && !isnan(value)) {                                   \
+        success = false;                                              \
     }
 
-#define POP_F32_CANONICAL_NAN(vm)                            \
-                                                             \
-    float value = 0;                                         \
-    if (success && wrp_pop_f32(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && !isnan(value)) {                          \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success) {                                           \
-        uint32_t int_value = *((uint32_t *)&value);          \
-                                                             \
-        if ((int_value & 0x400000) == 0) {                   \
-            success = false;                                 \
-        }                                                    \
-                                                             \
-        if ((int_value | 0x3FFFFF) == 1) {                   \
-            success = false;                                 \
-        }                                                    \
+#define POP_F32_CANONICAL_NAN(vm)                                     \
+                                                                      \
+    float value = 0;                                                  \
+    if (success && wrp_stk_exec_pop_f32(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && !isnan(value)) {                                   \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success) {                                                    \
+        uint32_t int_value = *((uint32_t *)&value);                   \
+                                                                      \
+        if ((int_value & 0x400000) == 0) {                            \
+            success = false;                                          \
+        }                                                             \
+                                                                      \
+        if ((int_value | 0x3FFFFF) == 1) {                            \
+            success = false;                                          \
+        }                                                             \
     }
 
-#define POP_F64(vm, result)                                  \
-                                                             \
-    double value = 0;                                        \
-    if (success && wrp_pop_f64(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && value != result) {                        \
-        success = false;                                     \
+#define POP_F64(vm, result)                                           \
+                                                                      \
+    double value = 0;                                                 \
+    if (success && wrp_stk_exec_pop_f64(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && value != result) {                                 \
+        success = false;                                              \
     }
 
-#define POP_F64_BITWISE(vm, result)                          \
-                                                             \
-    double value = 0;                                        \
-    if (success && wrp_pop_f64(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success) {                                           \
-        double result_value = result;                        \
-        uint64_t int_value = *((uint64_t *)&value);          \
-        uint64_t int_result = *((uint64_t *)&result_value);  \
-                                                             \
-        if (int_value != int_result) {                       \
-            success = false;                                 \
-        }                                                    \
+#define POP_F64_BITWISE(vm, result)                                   \
+                                                                      \
+    double value = 0;                                                 \
+    if (success && wrp_stk_exec_pop_f64(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success) {                                                    \
+        double result_value = result;                                 \
+        uint64_t int_value = *((uint64_t *)&value);                   \
+        uint64_t int_result = *((uint64_t *)&result_value);           \
+                                                                      \
+        if (int_value != int_result) {                                \
+            success = false;                                          \
+        }                                                             \
     }
 
-#define POP_F64_ARITHMETIC_NAN(vm)                           \
-                                                             \
-    double value = 0;                                        \
-    if (success && wrp_pop_f64(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && !isnan(value)) {                          \
-        success = false;                                     \
+#define POP_F64_ARITHMETIC_NAN(vm)                                    \
+                                                                      \
+    double value = 0;                                                 \
+    if (success && wrp_stk_exec_pop_f64(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && !isnan(value)) {                                   \
+        success = false;                                              \
     }
 
-#define POP_F64_CANONICAL_NAN(vm)                            \
-                                                             \
-    double value = 0;                                        \
-    if (success && wrp_pop_f64(vm, &value) != WRP_SUCCESS) { \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success && !isnan(value)) {                          \
-        success = false;                                     \
-    }                                                        \
-                                                             \
-    if (success) {                                           \
-        uint64_t int_value = *((uint64_t *)&value);          \
-                                                             \
-        if ((int_value & 0x8000000000000) == 0) {            \
-            success = false;                                 \
-        }                                                    \
-                                                             \
-        if ((int_value | 0x7FFFFFFFFFFFF) == 1) {            \
-            success = false;                                 \
-        }                                                    \
+#define POP_F64_CANONICAL_NAN(vm)                                     \
+                                                                      \
+    double value = 0;                                                 \
+    if (success && wrp_stk_exec_pop_f64(vm, &value) != WRP_SUCCESS) { \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success && !isnan(value)) {                                   \
+        success = false;                                              \
+    }                                                                 \
+                                                                      \
+    if (success) {                                                    \
+        uint64_t int_value = *((uint64_t *)&value);                   \
+                                                                      \
+        if ((int_value & 0x8000000000000) == 0) {                     \
+            success = false;                                          \
+        }                                                             \
+                                                                      \
+        if ((int_value | 0x7FFFFFFFFFFFF) == 1) {                     \
+            success = false;                                          \
+        }                                                             \
     }
 
 #define END_TEST()                                                \
@@ -275,11 +280,11 @@
     POP_I32(vm, result)                                       \
     END_TEST()
 
-#define TEST_IN_I32_I32_TRAP(vm, param_1, param_2, error) \
-    START_TEST(vm)                                        \
-    PUSH_I32(vm, param_1)                                 \
-    PUSH_I32(vm, param_2)                                 \
-    CALL_AND_TRAP(vm, error)                              \
+#define TEST_IN_I32_I32_TRAP(vm, param_1, param_2, err) \
+    START_TEST(vm)                                      \
+    PUSH_I32(vm, param_1)                               \
+    PUSH_I32(vm, param_2)                               \
+    CALL_AND_TRAP(vm, err)                              \
     END_TEST()
 
 #define TEST_IN_I64_OUT_I64(vm, param_1, result) \
@@ -304,11 +309,11 @@
     POP_I64(vm, result)                                       \
     END_TEST()
 
-#define TEST_IN_I64_I64_TRAP(vm, param_1, param_2, error) \
-    START_TEST(vm)                                        \
-    PUSH_I64(vm, param_1)                                 \
-    PUSH_I64(vm, param_2)                                 \
-    CALL_AND_TRAP(vm, error)                              \
+#define TEST_IN_I64_I64_TRAP(vm, param_1, param_2, err) \
+    START_TEST(vm)                                      \
+    PUSH_I64(vm, param_1)                               \
+    PUSH_I64(vm, param_2)                               \
+    CALL_AND_TRAP(vm, err)                              \
     END_TEST()
 
 #define TEST_IN_I64_I64_OUT_I32(vm, param_1, param_2, result) \

@@ -16,37 +16,62 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-struct wrp_vm;
+#include "warp-types.h"
 
-uint32_t wrp_push_operand(struct wrp_vm *vm, uint64_t value, int8_t type);
+wrp_err_t wrp_stk_exec_push_op(wrp_vm_t *vm, uint64_t value, int8_t type);
 
-uint32_t wrp_pop_operand(struct wrp_vm *vm, uint64_t *value, int8_t *type);
+wrp_err_t wrp_stk_exec_pop_op(wrp_vm_t *vm, uint64_t *value, int8_t *type);
 
-uint32_t wrp_push_i32(struct wrp_vm *vm, int32_t value);
+wrp_err_t wrp_stk_exec_push_i32(wrp_vm_t *vm, int32_t value);
 
-uint32_t wrp_push_i64(struct wrp_vm *vm, int64_t value);
+wrp_err_t wrp_stk_exec_push_i64(wrp_vm_t *vm, int64_t value);
 
-uint32_t wrp_push_f32(struct wrp_vm *vm, float value);
+wrp_err_t wrp_stk_exec_push_f32(wrp_vm_t *vm, float value);
 
-uint32_t wrp_push_f64(struct wrp_vm *vm, double value);
+wrp_err_t wrp_stk_exec_push_f64(wrp_vm_t *vm, double value);
 
-uint32_t wrp_pop_i32(struct wrp_vm *vm, int32_t *value);
+wrp_err_t wrp_stk_exec_pop_i32(wrp_vm_t *vm, int32_t *value);
 
-uint32_t wrp_pop_i64(struct wrp_vm *vm, int64_t *value);
+wrp_err_t wrp_stk_exec_pop_i64(wrp_vm_t *vm, int64_t *value);
 
-uint32_t wrp_pop_f32(struct wrp_vm *vm, float *value);
+wrp_err_t wrp_stk_exec_pop_f32(wrp_vm_t *vm, float *value);
 
-uint32_t wrp_pop_f64(struct wrp_vm *vm, double *value);
+wrp_err_t wrp_stk_exec_pop_f64(wrp_vm_t *vm, double *value);
 
-uint32_t wrp_push_block(struct wrp_vm *vm, size_t label, int8_t type);
+wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
+    size_t label,
+    wrp_block_t type,
+    int8_t signature);
 
-uint32_t wrp_pop_block(struct wrp_vm *vm, uint32_t depth);
+wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth);
 
-uint32_t wrp_push_call(struct wrp_vm *vm, uint32_t func_idx);
+wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx);
 
-uint32_t wrp_pop_call(struct wrp_vm *vm);
+wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm);
 
-uint32_t wrp_set_program_counter(struct wrp_vm *vm, size_t instruction);
+wrp_err_t wrp_stk_exec_call_frame_tail(wrp_vm_t *vm, int32_t *out_tail);
+
+wrp_err_t wrp_stk_check_push_call(wrp_vm_t *vm, uint32_t func_idx);
+
+wrp_err_t wrp_stk_check_func_sig(wrp_vm_t *vm);
+
+wrp_err_t wrp_stk_check_push_op(wrp_vm_t *vm, int8_t type);
+
+wrp_err_t wrp_stk_check_pop_op(wrp_vm_t *vm, int8_t expected_type, int8_t *type);
+
+wrp_err_t wrp_stk_check_push_block(wrp_vm_t *vm,
+    size_t address,
+    wrp_block_t type,
+    int8_t signature);
+
+wrp_err_t wrp_stk_check_pop_block(wrp_vm_t *vm);
+
+wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch);
+
+wrp_err_t wrp_stk_check_unreachable(wrp_vm_t *vm);
+
+

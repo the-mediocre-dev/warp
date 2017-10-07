@@ -18,7 +18,7 @@
 #include "test-builder.h"
 #include "test-common.h"
 
-void run_i64_tests(struct wrp_vm *vm,
+void run_i64_tests(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,

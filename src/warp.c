@@ -16,20 +16,20 @@
 
 #include <stdalign.h>
 
-#include "warp-stack-ops.h"
-#include "warp.h"
 #include "warp-execution.h"
 #include "warp-load.h"
-#include "warp-validation.h"
+#include "warp-scan.h"
+#include "warp-stack-ops.h"
 #include "warp-wasm.h"
+#include "warp.h"
 
-struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn)
+wrp_vm_t *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn)
 {
     if (!alloc_fn || !free_fn) {
         return NULL;
     }
 
-    struct wrp_vm *vm = alloc_fn(sizeof(struct wrp_vm), alignof(struct wrp_vm));
+    wrp_vm_t *vm = alloc_fn(sizeof(wrp_vm_t), alignof(wrp_vm_t));
 
     if (!vm) {
         return NULL;
@@ -37,57 +37,68 @@ struct wrp_vm *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn)
 
     vm->alloc_fn = alloc_fn;
     vm->free_fn = free_fn;
-    vm->error = WRP_SUCCESS;
     vm->mdle = NULL;
-    vm->operand_stk_head = -1;
-    vm->block_stk_head = -1;
+    vm->oprd_stk_head = -1;
+    vm->ctrl_stk_head = -1;
     vm->call_stk_head = -1;
-    vm->program_counter = 0;
+    vm->opcode_stream.bytes = NULL;
+    vm->opcode_stream.sz = 0;
+    vm->opcode_stream.pos = 0;
+    vm->err = WRP_SUCCESS;
     return vm;
 }
 
-struct wrp_wasm_mdle *wrp_instantiate_mdle(struct wrp_vm *vm,
-    uint8_t *buf,
-    size_t buf_sz)
+wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf)
 {
-    //TODO dynamically allocate? May be too large for stack...
-    struct wrp_wasm_meta meta = {0};
+    if (vm->mdle != NULL) {
+        return NULL;
+    }
 
-    uint32_t error = wrp_validate_mdle(buf, buf_sz, &meta);
+    wrp_wasm_meta_t meta = {0};
 
-    if(error != WRP_SUCCESS){
-        vm->error = error;
+    vm->err = WRP_ERR_UNKNOWN;
+
+    if ((vm->err = wrp_scan_mdle(buf, &meta)) != WRP_SUCCESS) {
+        return NULL;
+    }
+
+    if ((vm->err = wrp_check_meta(&meta) != WRP_SUCCESS)) {
         return NULL;
     }
 
     size_t mdle_sz = wrp_mdle_sz(&meta);
 
-    struct wrp_wasm_mdle *mdle = vm->alloc_fn(mdle_sz, 64);
+    wrp_wasm_mdle_t *mdle = vm->alloc_fn(mdle_sz, 64);
 
     if (mdle == NULL) {
-        return NULL;
+        vm->err = WRP_ERR_MEMORY_ALLOCATION_FAILED;
+        return mdle;
     }
 
-    wrp_mdle_init(mdle, &meta);
+    wrp_mdle_init(&meta, mdle);
 
-    error = wrp_load_mdle(mdle, buf, buf_sz, &meta);
-
-    if(error != WRP_SUCCESS){
+    if ((vm->err = wrp_load_mdle(buf, mdle)) != WRP_SUCCESS) {
         vm->free_fn(mdle);
-        return NULL;
+        mdle = NULL;
+        return mdle;
     }
 
-    vm->error = error;
+    if ((vm->err = wrp_type_check_mdle(vm, mdle)) != WRP_SUCCESS) {
+        vm->free_fn(mdle);
+        vm->mdle = NULL;
+        mdle = NULL;
+        return mdle;
+    }
 
     return mdle;
 }
 
-void wrp_destroy_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle)
+void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
     vm->free_fn(mdle);
 }
 
-bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle)
+bool wrp_attach_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
     if (vm->mdle) {
         return false;
@@ -105,7 +116,7 @@ bool wrp_attach_mdle(struct wrp_vm *vm, struct wrp_wasm_mdle *mdle)
     return true;
 }
 
-bool wrp_detach_mdle(struct wrp_vm *vm)
+bool wrp_detach_mdle(wrp_vm_t *vm)
 {
     if (!vm->mdle) {
         return false;
@@ -115,14 +126,12 @@ bool wrp_detach_mdle(struct wrp_vm *vm)
     return true;
 }
 
-bool wrp_start(struct wrp_vm *vm)
+bool wrp_start(wrp_vm_t *vm)
 {
-    wrp_reset_vm(vm);
-
     return true;
 }
 
-bool wrp_call(struct wrp_vm *vm, uint32_t func_idx)
+bool wrp_call(wrp_vm_t *vm, uint32_t func_idx)
 {
     if (vm->mdle == NULL) {
         //trap
@@ -130,27 +139,29 @@ bool wrp_call(struct wrp_vm *vm, uint32_t func_idx)
     }
 
     if (func_idx >= vm->mdle->num_funcs) {
+        //trap
         return false;
     }
 
-    vm->error = wrp_exec(vm, func_idx);
-
-    if(vm->error != WRP_SUCCESS){
+    if ((vm->err = wrp_exec(vm, func_idx)) != WRP_SUCCESS) {
         return false;
     }
 
     return true;
 }
 
-void wrp_reset_vm(struct wrp_vm *vm)
+void wrp_reset_vm(wrp_vm_t *vm)
 {
-    vm->error = WRP_SUCCESS;
-    vm->operand_stk_head = -1;
-    vm->block_stk_head = -1;
+    vm->oprd_stk_head = -1;
+    vm->ctrl_stk_head = -1;
     vm->call_stk_head = -1;
+    vm->opcode_stream.bytes = NULL;
+    vm->opcode_stream.sz = 0;
+    vm->opcode_stream.pos = 0;
+    vm->err = WRP_SUCCESS;
 }
 
-void wrp_close_vm(struct wrp_vm *vm)
+void wrp_close_vm(wrp_vm_t *vm)
 {
     vm->free_fn(vm);
 }

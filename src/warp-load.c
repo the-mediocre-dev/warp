@@ -14,302 +14,336 @@
  *  limitations under the License.
  */
 
+#include <string.h>
+
+#include "warp-error.h"
 #include "warp-load.h"
-#include "warp-buf.h"
 #include "warp-macros.h"
+#include "warp-type-check.h"
 #include "warp-wasm.h"
 #include "warp.h"
 
-static uint32_t load_types(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t check_preamble(wrp_buf_t *buf)
 {
-    mdle->num_types = meta->num_types;
+    if (buf->sz < 8) {
+        return WRP_ERR_MDLE_MISSING_PREAMBLE;
+    }
+
+    uint32_t magic_number = 0;
+    WRP_CHECK(wrp_read_uint32(buf, &magic_number));
+
+    if (magic_number != WASM_MAGIC_NUMBER) {
+        return WRP_ERR_MDLE_INVALID_MAGIC_NUMBER;
+    }
+
+    uint32_t wasm_version = 0;
+    WRP_CHECK(wrp_read_uint32(buf, &wasm_version));
+
+    if (wasm_version != WASM_VERSION) {
+        return WRP_ERR_MDLE_UNSUPPORTED_VERSION;
+    }
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t load_type_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+{
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_types));
+
     uint32_t current_param = 0;
     uint32_t current_result = 0;
 
-    for (uint32_t i = 0; i < meta->num_types; i++) {
-        size_t pos = 0;
-        WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->types[i]));
-        WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->forms[i]));
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->param_counts[i]));
+    for (uint32_t i = 0; i < out_mdle->num_types; i++) {
+        WRP_CHECK(wrp_read_varui7(buf, &out_mdle->forms[i]));
 
-        mdle->param_type_offsets[i] = current_param;
-
-        for (uint32_t j = 0; j < mdle->param_counts[i]; j++) {
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->param_types[current_param++]));
+        if (out_mdle->forms[i] != TYPE_FUNCTION) {
+            return WRP_ERR_MDLE_INVALID_FORM;
         }
 
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->result_counts[i]));
+        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->param_counts[i]));
 
-        mdle->result_type_offsets[i] = current_result;
+        if (out_mdle->param_counts[i] > MAX_FUNC_PARAMETERS) {
+            return WRP_ERR_MDLE_FUNC_PARAMETER_OVERFLOW;
+        }
 
-        for (uint32_t j = 0; j < mdle->result_counts[i]; j++) {
-            WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->result_types[current_result++]));
+        out_mdle->param_type_offsets[i] = current_param;
+
+        for (uint32_t j = 0; j < out_mdle->param_counts[i]; j++) {
+            WRP_CHECK(wrp_read_vari7(buf, &out_mdle->param_types[current_param]));
+
+            if (!wrp_is_valid_value_type(out_mdle->param_types[current_param])) {
+                return WRP_ERR_INVALID_TYPE;
+            }
+
+            current_param++;
+        }
+
+        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->result_counts[i]));
+
+        if (out_mdle->result_counts[i] > MAX_FUNC_RESULTS) {
+            return WRP_ERR_MDLE_FUNC_RETURN_OVERFLOW;
+        }
+
+        out_mdle->result_type_offsets[i] = current_result;
+
+        for (uint32_t j = 0; j < out_mdle->result_counts[i]; j++) {
+            WRP_CHECK(wrp_read_vari7(buf, &out_mdle->result_types[current_result]));
+
+            if (!wrp_is_valid_value_type(out_mdle->result_types[current_result])) {
+                return WRP_ERR_INVALID_TYPE;
+            }
+
+            current_result++;
         }
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t load_imports(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_import_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
     return WRP_SUCCESS;
 }
 
-static uint32_t load_funcs(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_func_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    mdle->num_funcs = meta->num_funcs;
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_funcs));
 
-    for (uint32_t i = 0; i < meta->num_funcs; i++) {
-        size_t pos = 0;
-        WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->funcs[i]));
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->func_type_idxs[i]));
+    for (uint32_t i = 0; i < out_mdle->num_funcs; i++) {
+        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->func_type_idxs[i]));
+
+        if (out_mdle->func_type_idxs[i] >= out_mdle->num_types) {
+            return WRP_ERR_INVALID_TYPE_IDX;
+        }
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t load_tables(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_table_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
     return WRP_SUCCESS;
 }
 
-static uint32_t load_memories(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_memory_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
     return WRP_SUCCESS;
 }
 
-static uint32_t load_globals(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_global_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    mdle->num_globals = meta->num_globals;
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_globals));
 
-    for (uint32_t i = 0; i < meta->num_globals; i++) {
-        size_t pos = 0;
-        WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->globals[i]));
+    for (uint32_t i = 0; i < out_mdle->num_globals; i++) {
 
-        mdle->global_values[i] = 0;
-        WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &mdle->global_types[i]));
+        out_mdle->global_values[i] = 0;
+        WRP_CHECK(wrp_read_vari7(buf, &out_mdle->global_types[i]));
 
-        //skip mutibility
-        uint8_t mutibility = 0;
-        WRP_CHECK(wrp_read_varui1(buf, buf_sz, &pos, &mutibility));
+        if (!wrp_is_valid_value_type(out_mdle->global_types[i])) {
+            return WRP_ERR_INVALID_TYPE;
+        }
+
+        uint8_t mutability = 0;
+        WRP_CHECK(wrp_read_varui1(buf, &mutability));
+
+        //WASM v1 forbids mutable globals
+        if (mutability != GLOBAL_IMMUTABLE) {
+            return WRP_ERR_INVALID_MUTIBILITY;
+        }
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t load_exports(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_export_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    mdle->num_exports = meta->num_exports;
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_exports));
+
     uint32_t current_char = 0;
 
-    for (uint32_t i = 0; i < meta->num_exports; i++) {
-        size_t pos = 0;
-        WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->exports[i]));
+    for (uint32_t i = 0; i < out_mdle->num_exports; i++) {
 
-        mdle->export_name_offsets[i] = current_char;
-        char *name = &mdle->export_names[current_char];
+        out_mdle->export_name_offsets[i] = current_char;
+        char *name = &out_mdle->export_names[current_char];
         uint32_t name_len = 0;
-        WRP_CHECK(wrp_read_string(buf, buf_sz, &pos, name, MAX_GLOBAL_NAME_SIZE, &name_len));
+        WRP_CHECK(wrp_read_string(buf, name, MAX_GLOBAL_NAME_SIZE, &name_len));
 
         current_char += name_len + 1;
 
-        //skip kind
         uint8_t kind = 0;
-        WRP_CHECK(wrp_read_varui7(buf, buf_sz, &pos, &kind));
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->export_func_idxs[i]));
+        WRP_CHECK(wrp_read_varui7(buf, &kind));
+
+        //WASM v1 forbids any but func exports
+        if (kind != FUNC_EXPORT) {
+            return WRP_ERR_INVALID_EXPORT;
+        }
+
+        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->export_func_idxs[i]));
+
+        if (out_mdle->export_func_idxs[i] >= out_mdle->num_funcs) {
+            return WRP_ERR_INVALID_FUNC_IDX;
+        }
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t load_start(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_start_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    if (!meta->start_func_present) {
-        return WRP_SUCCESS;
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->start_func_idx));
+    out_mdle->start_func_present = true;
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t load_element_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+{
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t load_code_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+{
+    uint32_t num_code_segments = 0;
+    WRP_CHECK(wrp_read_varui32(buf, &num_code_segments));
+
+    if (num_code_segments != out_mdle->num_funcs) {
+        return WRP_ERR_MDLE_CODE_MISMATCH;
     }
 
-    size_t pos = 0;
-    WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->start_func));
-    WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &mdle->start_func_idx));
-
-    mdle->start_func_present = true;
-
-    return WRP_SUCCESS;
-}
-
-static uint32_t load_elements(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
-{
-    return WRP_SUCCESS;
-}
-
-static uint32_t load_code(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
-{
     uint32_t current_local = 0;
-    uint32_t code_pos = 0;
+    size_t code_pos = 0;
 
-    for (uint32_t i = 0; i < meta->num_funcs; i++) {
-        size_t pos = 0;
-        WRP_CHECK(wrp_seek(buf, buf_sz, &pos, meta->codes[i]));
-
-        mdle->local_type_offsets[i] = current_local;
+    for (uint32_t i = 0; i < out_mdle->num_funcs; i++) {
+        size_t code_segment_pos = buf->pos;
+        out_mdle->local_type_offsets[i] = current_local;
 
         uint32_t body_sz = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &body_sz));
+        WRP_CHECK(wrp_read_varui32(buf, &body_sz));
 
         uint32_t num_local_entries = 0;
-        WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &num_local_entries));
+        WRP_CHECK(wrp_read_varui32(buf, &num_local_entries));
 
         for (uint32_t j = 0; j < num_local_entries; j++) {
             uint32_t num_locals = 0;
-            WRP_CHECK(wrp_read_varui32(buf, buf_sz, &pos, &num_locals));
+            WRP_CHECK(wrp_read_varui32(buf, &num_locals));
 
             int8_t value_type;
-            WRP_CHECK(wrp_read_vari7(buf, buf_sz, &pos, &value_type));
+            WRP_CHECK(wrp_read_vari7(buf, &value_type));
+
+            if (!wrp_is_valid_value_type(value_type)) {
+                return WRP_ERR_INVALID_TYPE;
+            }
 
             for (uint32_t k = 0; k < num_locals; k++) {
-                mdle->local_types[current_local++] = value_type;
+                out_mdle->local_types[current_local++] = value_type;
             }
 
-            mdle->local_counts[i] += num_locals;
+            out_mdle->local_counts[i] += num_locals;
         }
 
-        mdle->code_bodies[i] = &mdle->code[code_pos];
-        mdle->code_bodies_sz[i] = body_sz - (pos - meta->codes[i]) + 1;
+        size_t code_sz = body_sz - (buf->pos - code_segment_pos) + 1;
 
-        size_t end_pos = pos + mdle->code_bodies_sz[i] - 1;
+        out_mdle->code_bodies[i] = &out_mdle->code[code_pos];
+        out_mdle->code_bodies_sz[i] = code_sz;
 
-        //TODO load blocks and copy code in one pass
-        while (pos <= end_pos) {
-            WRP_CHECK(wrp_read_uint8(buf, buf_sz, &pos, &mdle->code[code_pos++]));
-        }
+        memcpy(&out_mdle->code[code_pos], &buf->bytes[buf->pos], code_sz);
+
+        buf->pos += code_sz;
+        code_pos += code_sz;
     }
 
     return WRP_SUCCESS;
 }
 
-static uint32_t load_data(uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta,
-    struct wrp_wasm_mdle *mdle)
+static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
     return WRP_SUCCESS;
 }
 
-static uint32_t map_blocks(struct wrp_wasm_meta *meta, struct wrp_wasm_mdle *mdle)
+wrp_err_t wrp_load_mdle(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    if (meta->num_block_ops == 0 && meta->num_if_ops == 0) {
-        return WRP_SUCCESS;
-    }
+    buf->pos = 0;
 
-    //TODO dynamically allocate? may be too much for the stack...
-    uint8_t block_type_stk[MAX_BLOCK_DEPTH] = {0};
-    int32_t block_type_stk_head = -1;
+    WRP_CHECK(check_preamble(buf));
 
-    uint32_t block_op_idx_stk[MAX_BLOCK_DEPTH] = {0};
-    int32_t block_op_stk_head = -1;
-    uint32_t current_block_op_idx = 0;
+    uint32_t prev_section_id = 0;
 
-    uint32_t if_op_idx_stk[MAX_BLOCK_DEPTH] = {0};
-    int32_t if_op_stk_head = -1;
-    uint32_t current_if_op_idx = 0;
+    while (buf->pos < buf->sz) {
+        uint8_t section_id = 0;
+        WRP_CHECK(wrp_read_varui7(buf, &section_id));
 
-    for (uint32_t i = 0; i < meta->num_funcs; i++) {
-        size_t pos = 0;
-        size_t end_pos = pos + mdle->code_bodies_sz[i] - 1;
+        uint32_t section_sz = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &section_sz));
 
-        if_op_stk_head = -1;
-        mdle->if_offsets[i] = current_if_op_idx;
-        mdle->if_counts[i] = 0;
-
-        block_op_stk_head = -1;
-        mdle->block_offsets[i] = current_block_op_idx;
-        mdle->block_counts[i] = 0;
-
-        // //skip func end opcode as it doesnt have a corresponding control opcode
-        while (pos < end_pos) {
-            uint8_t opcode = 0;
-            size_t opcode_pos = pos;
-            WRP_CHECK(wrp_read_uint8(mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, &opcode));
-            WRP_CHECK(wrp_check_immediates(opcode, mdle->code_bodies[i], mdle->code_bodies_sz[i], &pos, meta));
-
-            if (opcode == OP_BLOCK) {
-                block_type_stk[++block_type_stk_head] = BLOCK;
-                block_op_idx_stk[++block_op_stk_head] = current_block_op_idx;
-                mdle->block_addresses[current_block_op_idx++] = opcode_pos;
-                mdle->block_counts[i]++;
-            } else if (opcode == OP_IF) {
-                block_type_stk[++block_type_stk_head] = BLOCK_IF;
-                if_op_idx_stk[++if_op_stk_head] = current_if_op_idx;
-                mdle->if_addresses[current_if_op_idx++] = opcode_pos;
-                mdle->if_counts[i]++;
-            } else if (opcode == OP_LOOP) {
-                block_type_stk[++block_type_stk_head] = BLOCK_LOOP;
-            } else if (opcode == OP_ELSE) {
-                uint32_t if_op_idx = if_op_idx_stk[if_op_stk_head];
-                mdle->else_addresses[if_op_idx] = opcode_pos;
-            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK) {
-                block_type_stk_head--;
-                uint32_t block_op_idx = block_op_idx_stk[block_op_stk_head--];
-                mdle->block_labels[block_op_idx] = opcode_pos;
-            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_IF) {
-                block_type_stk_head--;
-                uint32_t if_op_idx = if_op_idx_stk[if_op_stk_head--];
-                mdle->if_labels[if_op_idx] = opcode_pos;
-            } else if (opcode == OP_END && block_type_stk[block_type_stk_head] == BLOCK_LOOP) {
-                block_type_stk_head--;
-            }
+        if (section_id > SECTION_DATA) {
+            return WRP_ERR_MDLE_INVALID_SECTION_ID;
         }
+
+        if (section_id > 0 && section_id <= prev_section_id) {
+            return WRP_ERR_MDLE_SECTION_ORDER;
+        }
+
+        switch (section_id) {
+        case SECTION_CUSTOM:
+            WRP_CHECK(wrp_skip(buf, section_sz));
+            break;
+
+        case SECTION_TYPE:
+            WRP_CHECK(load_type_section(buf, out_mdle));
+            break;
+
+        case SECTION_IMPORT:
+            //WRP_CHECK(load_import_section(buf, out_mdle));
+            WRP_CHECK(wrp_skip(buf, section_sz));
+            break;
+
+        case SECTION_FUNC:
+            WRP_CHECK(load_func_section(buf, out_mdle));
+            break;
+
+        case SECTION_TABLE:
+            WRP_CHECK(load_table_section(buf, out_mdle));
+            break;
+
+        case SECTION_MEMORY:
+            WRP_CHECK(load_memory_section(buf, out_mdle));
+            break;
+
+        case SECTION_GLOBAL:
+            WRP_CHECK(load_global_section(buf, out_mdle));
+            break;
+
+        case SECTION_EXPORT:
+            WRP_CHECK(load_export_section(buf, out_mdle));
+            break;
+
+        case SECTION_START:
+            WRP_CHECK(load_start_section(buf, out_mdle));
+            break;
+
+        case SECTION_ELEMENT:
+            //WRP_CHECK(load_element_section(buf, out_mdle));
+            WRP_CHECK(wrp_skip(buf, section_sz));
+            break;
+
+        case SECTION_CODE:
+            WRP_CHECK(load_code_section(buf, out_mdle));
+            break;
+
+        case SECTION_DATA:
+            //WRP_CHECK(load_data_section(buf, out_meta));
+            WRP_CHECK(wrp_skip(buf, section_sz));
+            break;
+
+        default:
+            break;
+        }
+
+        prev_section_id = section_id;
     }
 
-    return WRP_SUCCESS;
-}
+    if (!wrp_end_of_buf(buf)) {
+        return WRP_ERR_MDLE_INVALID_BYTES;
+    }
 
-uint32_t wrp_load_mdle(struct wrp_wasm_mdle *mdle,
-    uint8_t *buf,
-    size_t buf_sz,
-    struct wrp_wasm_meta *meta)
-{
-    WRP_CHECK(load_types(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_imports(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_funcs(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_tables(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_memories(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_globals(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_exports(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_start(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_elements(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_code(buf, buf_sz, meta, mdle));
-    WRP_CHECK(load_data(buf, buf_sz, meta, mdle));
-    WRP_CHECK(map_blocks(meta, mdle));
     return WRP_SUCCESS;
 }

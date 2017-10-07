@@ -35,7 +35,7 @@
 #define MAX_EXPORTS             32u
 #define MAX_FUNC_PARAMETERS     32u
 #define MAX_FUNC_LOCALS         32u
-#define MAX_FUNC_BODY_SIZE      32u
+#define MAX_CODE_SIZE           4096u
 #define MAX_TABLE_SIZE          4096u
 #define MAX_MEMORY_SIZE         1u
 #define MAX_GLOBAL_NAME_SIZE    128u
