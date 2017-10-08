@@ -160,7 +160,8 @@ static wrp_err_t exec_br_table_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_return_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    WRP_CHECK(wrp_stk_exec_pop_call(vm));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_call_op(wrp_vm_t *vm)
@@ -178,12 +179,32 @@ static wrp_err_t exec_call_indirect_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_drop_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_select_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t condition = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &condition));
+
+    uint64_t y_value = 0;
+    int8_t y_type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &y_value, &y_type));
+
+    uint64_t x_value = 0;
+    int8_t x_type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &x_value, &x_type));
+
+    if(condition){
+        WRP_CHECK(wrp_stk_exec_push_op(vm, y_value, y_type));
+    } else {
+        WRP_CHECK(wrp_stk_exec_push_op(vm, x_type, x_value));
+    }
+
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_get_local_op(wrp_vm_t *vm)
