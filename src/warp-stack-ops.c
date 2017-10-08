@@ -352,7 +352,8 @@ wrp_err_t wrp_stk_exec_call_frame_tail(wrp_vm_t *vm, int32_t *out_tail)
     uint32_t param_count = vm->mdle->param_counts[type_idx];
     uint32_t local_count = vm->mdle->local_counts[func_idx];
     uint32_t operand_stk_ptr = vm->call_stk[vm->call_stk_head].oprd_stk_ptr;
-    return (operand_stk_ptr + 1) - local_count - param_count;
+    *out_tail = (operand_stk_ptr + 1) - local_count - param_count;
+    return WRP_SUCCESS;
 }
 
 wrp_err_t wrp_stk_check_push_call(wrp_vm_t *vm, uint32_t func_idx)
