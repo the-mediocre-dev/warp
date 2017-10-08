@@ -151,7 +151,7 @@ static wrp_err_t exec_br_table_op(wrp_vm_t *vm)
     int32_t depth = default_target;
 
     if (target_idx >= 0 && (uint32_t)target_idx < target_count) {
-        depth = target_idx;
+        depth = branch_table[target_idx];
     }
 
     WRP_CHECK(wrp_stk_exec_pop_block(vm, depth));
