@@ -31,10 +31,10 @@
 #define MAX_GLOBALS             32u
 #define MAX_ELEMENT_SEGMENTS    32u
 #define MAX_DATA_SEGMENTS       32u
-#define MAX_IMPORTS             32u
-#define MAX_EXPORTS             32u
-#define MAX_FUNC_PARAMETERS     32u
-#define MAX_FUNC_LOCALS         32u
+#define MAX_IMPORTS             128u
+#define MAX_EXPORTS             128u
+#define MAX_FUNC_PARAMETERS     128u
+#define MAX_FUNC_LOCALS         128u
 #define MAX_CODE_SIZE           4096u
 #define MAX_TABLE_SIZE          4096u
 #define MAX_MEMORY_SIZE         1u
