@@ -138,7 +138,6 @@ static wrp_err_t check_end(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         }
     }
 
-    WRP_CHECK(wrp_stk_check_block_sig(vm, 0, false));
     WRP_CHECK(wrp_stk_check_pop_block(vm));
     return WRP_SUCCESS;
 }

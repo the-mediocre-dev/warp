@@ -469,6 +469,19 @@ wrp_err_t wrp_stk_check_pop_block(wrp_vm_t *vm)
         return WRP_ERR_BLOCK_STK_UNDERFLOW;
     }
 
+    uint32_t oprd_count = (vm->oprd_stk_head + 1) - (vm->ctrl_stk[block_idx].oprd_stk_ptr + 1);
+
+    if (!vm->ctrl_stk[block_idx].unreachable) {
+
+        if (vm->ctrl_stk[block_idx].signature == VOID && oprd_count != 0) {
+            return WRP_ERR_TYPE_MISMATCH;
+        }
+
+        if (vm->ctrl_stk[block_idx].signature != VOID && oprd_count == 0) {
+            return WRP_ERR_TYPE_MISMATCH;
+        }
+    }
+
     int8_t result_type = 0;
 
     //pop the results
@@ -503,17 +516,22 @@ wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch)
 
     uint32_t oprd_count = (vm->oprd_stk_head + 1) - (vm->ctrl_stk[block_idx].oprd_stk_ptr + 1);
 
-    //TODO handle multiple block results
-    if (vm->ctrl_stk[block_idx].signature == VOID && oprd_count != 0) {
-        return WRP_ERR_BLOCK_TYPE_MISMATCH;
+    if (!vm->ctrl_stk[vm->ctrl_stk_head].unreachable) {
+
+        if (vm->ctrl_stk[block_idx].signature == VOID && oprd_count != 0) {
+            return WRP_ERR_TYPE_MISMATCH;
+        }
+
+        if (vm->ctrl_stk[block_idx].signature != VOID && oprd_count == 0) {
+            return WRP_ERR_TYPE_MISMATCH;
+        }
     }
 
-    if (vm->ctrl_stk[block_idx].signature != VOID && oprd_count == 0) {
-        return WRP_ERR_BLOCK_TYPE_MISMATCH;
-    }
+    int8_t result_type = 0;
 
-    if (vm->ctrl_stk[block_idx].signature != VOID && vm->oprd_stk[vm->oprd_stk_head].type != vm->ctrl_stk[block_idx].signature) {
-        return WRP_ERR_BLOCK_TYPE_MISMATCH;
+    //pop the results
+    if (vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
+        WRP_CHECK(wrp_stk_check_pop_op(vm, vm->ctrl_stk[vm->ctrl_stk_head].signature, &result_type));
     }
 
     return WRP_SUCCESS;
