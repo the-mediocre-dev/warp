@@ -285,6 +285,15 @@
     POP_I32(vm, result)                                       \
     END_TEST()
 
+#define TEST_IN_I32_I32_I32_OUT_I32(vm, param_1, param_2, param_3, result) \
+    START_TEST(vm)                                                          \
+    PUSH_I32(vm, param_1)                                                   \
+    PUSH_I32(vm, param_2)                                                   \
+    PUSH_I32(vm, param_3)                                                   \
+    CALL(vm)                                                                \
+    POP_I32(vm, result)                                                     \
+    END_TEST()
+
 #define TEST_IN_I32_I32_TRAP(vm, param_1, param_2, err) \
     START_TEST(vm)                                      \
     PUSH_I32(vm, param_1)                               \
