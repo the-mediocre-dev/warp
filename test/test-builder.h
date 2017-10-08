@@ -27,7 +27,7 @@
             printf("invalid module test %s passed\n", mdle_name);                                                                                    \
         } else {                                                                                                                                     \
             failed++;                                                                                                                                \
-            printf("invalid module test %s failed. Expected: \"%s\", Actual \"%s\":\n", mdle_name, wrp_debug_err(expected_err), wrp_debug_err(err)); \
+            printf("invalid module test %s failed. Expected: \"%s\", Actual: \"%s\"\n", mdle_name, wrp_debug_err(expected_err), wrp_debug_err(err)); \
         }                                                                                                                                            \
     }
 
@@ -252,6 +252,11 @@
     failed += failed_func_tests;       \
     printf("done\n");                  \
     }
+
+#define TEST_EMPTY(vm) \
+    START_TEST(vm)     \
+    CALL(vm)           \
+    END_TEST()
 
 #define TEST_IN_I32(vm, param_1) \
     START_TEST(vm)               \

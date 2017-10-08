@@ -46,6 +46,9 @@ build $builddir/test/test-common.o: $
 build $builddir/test/warp-spec-tests.o: $
   compile ./test/warp-spec-tests.c
 
+build $builddir/test/block-tests.o: $
+  compile ./test/block-tests.c
+
 build $builddir/test/f32-tests.o: $
   compile ./test/f32-tests.c
 
@@ -72,6 +75,7 @@ build $target : link $builddir/src/warp-buf.o $
                      $builddir/src/warp.o $
                      $builddir/test/test-common.o $
                      $builddir/test/warp-spec-tests.o $
+                     $builddir/test/block-tests.o $
                      $builddir/test/f32-tests.o $
                      $builddir/test/f64-tests.o $
                      $builddir/test/i32-tests.o $
