@@ -56,7 +56,10 @@ static wrp_err_t exec_block_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_loop_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int8_t signature = 0;
+    WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
+    WRP_CHECK(wrp_stk_exec_push_block(vm, vm->opcode_stream.pos - 1, BLOCK_LOOP, signature))
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_if_op(wrp_vm_t *vm)
