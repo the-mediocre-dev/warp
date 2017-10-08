@@ -305,7 +305,8 @@ wrp_err_t wrp_load_mdle(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             break;
 
         case SECTION_MEMORY:
-            WRP_CHECK(load_memory_section(buf, out_mdle));
+            // WRP_CHECK(load_memory_section(buf, out_mdle));
+            WRP_CHECK(wrp_skip(buf, section_sz));
             break;
 
         case SECTION_GLOBAL:

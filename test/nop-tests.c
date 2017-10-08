@@ -25,4 +25,23 @@ void run_nop_tests(wrp_vm_t *vm,
     uint32_t *passed,
     uint32_t *failed)
 {
+    load_mdle(vm, dir, path_buf, path_buf_sz, "nop.0.wasm");
+
+    START_FUNC_TESTS(vm, "as-func-first");
+    TEST_OUT_I32(vm, 1);
+    END_FUNC_TESTS((*passed), (*failed));
+
+    START_FUNC_TESTS(vm, "as-func-mid");
+    TEST_OUT_I32(vm, 2);
+    END_FUNC_TESTS((*passed), (*failed));
+
+    START_FUNC_TESTS(vm, "as-func-last");
+    TEST_OUT_I32(vm, 3);
+    END_FUNC_TESTS((*passed), (*failed));
+
+    START_FUNC_TESTS(vm, "as-func-everywhere");
+    TEST_OUT_I32(vm, 4);
+    END_FUNC_TESTS((*passed), (*failed));
+
+    unload_mdle(vm);
 }

@@ -101,14 +101,14 @@ void run_if_tests(wrp_vm_t *vm,
 
     unload_mdle(vm);
 
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.1.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.2.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.3.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.4.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.5.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.6.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.7.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.8.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.1.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.2.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.3.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.4.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.5.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.6.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.7.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.8.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.9.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.10.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.11.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
@@ -124,9 +124,9 @@ void run_if_tests(wrp_vm_t *vm,
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.21.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.22.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.23.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.24.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.25.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.26.wasm", WRP_ERR_CALL_RESULT_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.24.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.25.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.26.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.27.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.28.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
     TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "if.29.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));

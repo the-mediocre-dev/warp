@@ -133,7 +133,7 @@ static wrp_err_t check_end(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
         out_mdle->if_labels[if_idx] = vm->opcode_stream.pos - 1;
 
-        if(out_mdle->else_addresses[if_idx] == 0 && vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID){
+        if (out_mdle->else_addresses[if_idx] == 0 && vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
             return WRP_ERR_VALUEFUL_IF_WITH_NO_ELSE;
         }
     }
@@ -279,6 +279,8 @@ static wrp_err_t check_select(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     int8_t type_2 = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, type_1, &type_2));
 
+    WRP_CHECK(wrp_stk_check_push_op(vm, type_2));
+
     return WRP_SUCCESS;
 }
 
@@ -287,16 +289,22 @@ static wrp_err_t check_get_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
     uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
     uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t total_locals = out_mdle->local_counts[func_idx] + param_count;
+    uint32_t local_count = out_mdle->local_counts[func_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
-    if (local_idx >= total_locals) {
+    int8_t local_type = 0;
+
+    if (local_idx < param_count) {
+        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
+        local_type = out_mdle->param_types[param_type_offset + local_idx];
+    } else if (local_idx < param_count + local_count) {
+        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
+        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
 
-    uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-    int8_t local_type = out_mdle->local_types[local_type_offset];
     WRP_CHECK(wrp_stk_check_push_op(vm, local_type));
     return WRP_SUCCESS;
 }
@@ -306,16 +314,22 @@ static wrp_err_t check_set_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
     uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
     uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t total_locals = out_mdle->local_counts[func_idx] + param_count;
+    uint32_t local_count = out_mdle->local_counts[func_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
-    if (local_idx >= total_locals) {
+    int8_t local_type = 0;
+
+    if (local_idx < param_count) {
+        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
+        local_type = out_mdle->param_types[param_type_offset + local_idx];
+    } else if (local_idx < param_count + local_count) {
+        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
+        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
 
-    uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-    int8_t local_type = out_mdle->local_types[local_type_offset];
     int8_t actual_type = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, local_type, &actual_type));
     return WRP_SUCCESS;
@@ -326,16 +340,22 @@ static wrp_err_t check_tee_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
     uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
     uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t total_locals = out_mdle->local_counts[func_idx] + param_count;
+    uint32_t local_count = out_mdle->local_counts[func_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
-    if (local_idx >= total_locals) {
+    int8_t local_type = 0;
+
+    if (local_idx < param_count) {
+        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
+        local_type = out_mdle->param_types[param_type_offset + local_idx];
+    } else if (local_idx < param_count + local_count) {
+        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
+        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
 
-    uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-    int8_t local_type = out_mdle->local_types[local_type_offset];
     int8_t actual_type = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, local_type, &actual_type));
     WRP_CHECK(wrp_stk_check_push_op(vm, local_type));
