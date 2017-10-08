@@ -37,7 +37,7 @@
 #define MAX_FUNC_LOCALS         128u
 #define MAX_CODE_SIZE           4096u
 #define MAX_TABLE_SIZE          4096u
-#define MAX_MEMORY_SIZE         1u
+#define MAX_MEMORY_SIZE         16u
 #define MAX_GLOBAL_NAME_SIZE    128u
 #define MAX_LOCALS              1024u
 #define MAX_BLOCK_DEPTH         512
