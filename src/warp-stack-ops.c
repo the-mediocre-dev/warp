@@ -118,7 +118,7 @@ wrp_err_t wrp_stk_exec_pop_i32(wrp_vm_t *vm, int32_t *value)
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &operand, &type));
 
     if (type != I32) {
-        return WRP_ERR_OP_TYPE_MISMATCH;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     for (uint32_t i = 0; i < sizeof(int32_t); i++) {
@@ -135,7 +135,7 @@ wrp_err_t wrp_stk_exec_pop_i64(wrp_vm_t *vm, int64_t *value)
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &operand, &type));
 
     if (type != I64) {
-        return WRP_ERR_OP_TYPE_MISMATCH;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     for (uint32_t i = 0; i < sizeof(int64_t); i++) {
@@ -152,7 +152,7 @@ wrp_err_t wrp_stk_exec_pop_f32(wrp_vm_t *vm, float *value)
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &operand, &type));
 
     if (type != F32) {
-        return WRP_ERR_OP_TYPE_MISMATCH;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     for (uint32_t i = 0; i < sizeof(float); i++) {
@@ -169,7 +169,7 @@ wrp_err_t wrp_stk_exec_pop_f64(wrp_vm_t *vm, double *value)
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &operand, &type));
 
     if (type != F64) {
-        return WRP_ERR_OP_TYPE_MISMATCH;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     for (uint32_t i = 0; i < sizeof(double); i++) {
@@ -246,7 +246,7 @@ wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx)
     uint32_t param_type_offset = vm->mdle->param_type_offsets[type_idx];
 
     if (call_frame_operand_count(vm) < param_count) {
-        return WRP_ERR_CALL_MISSING_ARGS;
+        return WRP_ERR_CALL_PARAM_TYPE_MISMATCH;
     }
 
     //validate operand stack
@@ -255,7 +255,7 @@ wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx)
         uint8_t operand_type = vm->oprd_stk[operand_idx].type;
 
         if (operand_type != vm->mdle->param_types[param_type_offset + i]) {
-            return WRP_ERR_CALL_INVALID_ARGS;
+            return WRP_ERR_CALL_PARAM_TYPE_MISMATCH;
         }
     }
 
@@ -298,7 +298,7 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
     uint32_t result_type_offset = vm->mdle->result_type_offsets[type_idx];
 
     if (call_frame_operand_count(vm) < result_count) {
-        return WRP_ERR_CALL_MISSING_RESULTS;
+        return WRP_ERR_CALL_RESULT_TYPE_MISMATCH;
     }
 
     uint64_t result = 0;
@@ -310,7 +310,7 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
         result_type = vm->oprd_stk[vm->oprd_stk_head].type;
 
         if (result_type != vm->mdle->result_types[result_type_offset]) {
-            return WRP_ERR_CALL_INVALID_RESULTS;
+            return WRP_ERR_CALL_RESULT_TYPE_MISMATCH;
         }
     }
 
@@ -381,14 +381,14 @@ wrp_err_t wrp_stk_check_func_sig(wrp_vm_t *vm)
     }
 
     if (vm->mdle->result_counts[type_idx] == 0 && vm->oprd_stk_head > -1) {
-        return WRP_ERR_CALL_INVALID_RESULTS;
+        return WRP_ERR_CALL_RESULT_TYPE_MISMATCH;
     }
 
     //TODO handle multiple results
     uint32_t result_type_offset = vm->mdle->result_type_offsets[type_idx];
 
     if (vm->oprd_stk[vm->oprd_stk_head].type != vm->mdle->result_types[result_type_offset]) {
-        return WRP_ERR_CALL_INVALID_RESULTS;
+        return WRP_ERR_CALL_RESULT_TYPE_MISMATCH;
     }
 
     return WRP_SUCCESS;
@@ -431,7 +431,7 @@ wrp_err_t wrp_stk_check_pop_op(wrp_vm_t *vm, int8_t expected_type, int8_t *type)
     }
 
     if (expected_type != actual_type && expected_type != UNKNOWN && actual_type != UNKNOWN) {
-        return WRP_ERR_OP_TYPE_MISMATCH;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     *type = actual_type;
