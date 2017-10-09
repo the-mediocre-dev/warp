@@ -420,7 +420,10 @@ static wrp_err_t exec_f32_const_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_f64_const_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double f64_const = 0;
+    WRP_CHECK(wrp_read_f64(&vm->opcode_stream, &f64_const));
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, f64_const));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_eqz_op(wrp_vm_t *vm)
