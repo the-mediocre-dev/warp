@@ -280,6 +280,9 @@ wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
     buf->pos = 0;
 
+    //default to 1 memory in case memory section is not present
+    out_meta->num_memories = 1;
+
     WRP_CHECK(scan_preamble(buf));
 
     while (buf->pos < buf->sz) {
