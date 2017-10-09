@@ -27,37 +27,29 @@ size_t wrp_mdle_sz(wrp_wasm_meta_t *meta)
 {
     size_t mdle_sz = sizeof(wrp_wasm_mdle_t);
     mdle_sz += ALIGN_64(meta->num_types * sizeof(uint8_t));
-
     mdle_sz += ALIGN_64(meta->num_type_params * sizeof(int8_t *));
     mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
-
     mdle_sz += ALIGN_64(meta->num_type_returns * sizeof(int8_t *));
     mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
-
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
+    mdle_sz += ALIGN_64(meta->num_memories * sizeof(wrp_memory_t));
     mdle_sz += ALIGN_64(meta->num_globals * sizeof(uint64_t));
     mdle_sz += ALIGN_64(meta->num_globals * sizeof(int8_t));
-
     mdle_sz += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
     mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
-
     mdle_sz += ALIGN_64(meta->num_code_locals * sizeof(int8_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
     mdle_sz += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(size_t));
-
     mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
     mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
     mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
     mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
     mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
@@ -94,6 +86,9 @@ void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle)
 
     out_mdle->func_type_idxs = (uint32_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    out_mdle->memories = (wrp_memory_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_memories * sizeof(wrp_memory_t));
 
     out_mdle->global_values = (uint64_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_globals * sizeof(uint64_t));
@@ -154,6 +149,12 @@ void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle)
 
     out_mdle->if_counts = (uint32_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+
+    //set memory
+    out_mdle->num_memories = 1;
+    out_mdle->memories[0].bytes = NULL;
+    out_mdle->memories[0].num_pages = 0;
+    out_mdle->memories[0].num_pages = MAX_MEMORY_PAGES;
 }
 
 bool wrp_is_valid_wasm_type(int8_t type)

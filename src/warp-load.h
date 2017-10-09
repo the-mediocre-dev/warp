@@ -21,4 +21,6 @@
 
 #include "warp-types.h"
 
-wrp_err_t wrp_load_mdle(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle);
+wrp_err_t wrp_load_mdle(wrp_vm_t *vm,
+    wrp_buf_t *buf,
+    wrp_wasm_mdle_t *out_mdle);

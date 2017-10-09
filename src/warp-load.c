@@ -125,8 +125,27 @@ static wrp_err_t load_table_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     return WRP_SUCCESS;
 }
 
-static wrp_err_t load_memory_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+static wrp_err_t load_memory_section(wrp_vm_t *vm,
+    wrp_buf_t *buf,
+    wrp_wasm_mdle_t *out_mdle)
 {
+    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_memories));
+
+    uint32_t min_pages = 0;
+    uint32_t max_pages = MAX_MEMORY_PAGES;
+    WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
+
+    if(min_pages > 0){
+        out_mdle->memories[0].bytes = vm->alloc_fn(min_pages * PAGE_SIZE, 64);
+
+        if(out_mdle->memories[0].bytes == NULL){
+            return WRP_ERR_MEMORY_ALLOCATION_FAILED;
+        }
+    }
+
+    out_mdle->memories[0].num_pages = min_pages;
+    out_mdle->memories[0].max_pages = max_pages;
+
     return WRP_SUCCESS;
 }
 
@@ -259,7 +278,9 @@ static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     return WRP_SUCCESS;
 }
 
-wrp_err_t wrp_load_mdle(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+wrp_err_t wrp_load_mdle(wrp_vm_t *vm,
+    wrp_buf_t *buf,
+    wrp_wasm_mdle_t *out_mdle)
 {
     buf->pos = 0;
 
@@ -305,8 +326,7 @@ wrp_err_t wrp_load_mdle(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             break;
 
         case SECTION_MEMORY:
-            // WRP_CHECK(load_memory_section(buf, out_mdle));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(load_memory_section(vm, buf, out_mdle));
             break;
 
         case SECTION_GLOBAL:

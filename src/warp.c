@@ -20,6 +20,7 @@
 #include "warp-load.h"
 #include "warp-scan.h"
 #include "warp-stack-ops.h"
+#include "warp-type-check.h"
 #include "warp-wasm.h"
 #include "warp.h"
 
@@ -77,17 +78,16 @@ wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf)
 
     wrp_mdle_init(&meta, mdle);
 
-    if ((vm->err = wrp_load_mdle(buf, mdle)) != WRP_SUCCESS) {
-        vm->free_fn(mdle);
-        mdle = NULL;
-        return mdle;
+    if ((vm->err = wrp_load_mdle(vm, buf, mdle)) != WRP_SUCCESS) {
+        wrp_destroy_mdle(vm, mdle);
+        vm->mdle = NULL;
+        return NULL;
     }
 
     if ((vm->err = wrp_type_check_mdle(vm, mdle)) != WRP_SUCCESS) {
-        vm->free_fn(mdle);
+        wrp_destroy_mdle(vm, mdle);
         vm->mdle = NULL;
-        mdle = NULL;
-        return mdle;
+        return NULL;
     }
 
     return mdle;
@@ -95,6 +95,12 @@ wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf)
 
 void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
+    for (uint32_t i = 0; i < mdle->num_memories; i++) {
+        if (mdle->memories[i].bytes != NULL) {
+            vm->free_fn(mdle->memories[i].bytes);
+        }
+    }
+
     vm->free_fn(mdle);
 }
 

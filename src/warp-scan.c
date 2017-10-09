@@ -104,7 +104,7 @@ static wrp_err_t scan_memory_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
     for (uint32_t i = 0; i < out_meta->num_memories; i++) {
         uint32_t min_pages = 0;
-        uint32_t max_pages = MAX_MEMORY_SIZE;
+        uint32_t max_pages = MAX_MEMORY_PAGES;
         WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
     }
 

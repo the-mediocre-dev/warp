@@ -292,6 +292,12 @@ typedef struct wrp_wasm_meta {
     uint32_t num_if_ops;
 } wrp_wasm_meta_t;
 
+typedef struct wrp_memory {
+    uint8_t *bytes;
+    uint32_t num_pages;
+    uint32_t max_pages;
+} wrp_memory_t;
+
 typedef struct wrp_wasm_mdle {
     //force struct alignment at member level, as struct level
     //usage of alignas only works in C++, for some magical reason
@@ -305,6 +311,8 @@ typedef struct wrp_wasm_mdle {
     uint32_t num_types;
     uint32_t *func_type_idxs;
     uint32_t num_funcs;
+    wrp_memory_t *memories;
+    uint32_t num_memories;
     uint64_t *global_values;
     int8_t *global_types;
     uint32_t num_globals;
@@ -317,16 +325,13 @@ typedef struct wrp_wasm_mdle {
     int8_t *local_types;
     uint32_t *local_type_offsets;
     uint32_t *local_counts;
-
     uint8_t *code;
     uint8_t **code_bodies;
     size_t *code_bodies_sz;
-
     size_t *block_addresses;
     size_t *block_labels;
     uint32_t *block_offsets;
     uint32_t *block_counts;
-
     size_t *if_addresses;
     size_t *if_labels;
     size_t *else_addresses;
