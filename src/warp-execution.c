@@ -16,6 +16,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "warp-buf.h"
 #include "warp-error.h"
@@ -201,7 +202,7 @@ static wrp_err_t exec_select_op(wrp_vm_t *vm)
     int8_t x_type = 0;
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &x_value, &x_type));
 
-    if(condition){
+    if (condition) {
         WRP_CHECK(wrp_stk_exec_push_op(vm, y_value, y_type));
     } else {
         WRP_CHECK(wrp_stk_exec_push_op(vm, x_type, x_value));
@@ -386,12 +387,46 @@ static wrp_err_t exec_i64_store_32_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_current_memory_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t reserved = 0;
+    WRP_CHECK(wrp_read_vari32(&vm->opcode_stream, &reserved));
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, (int32_t)vm->mdle->memories[0].num_pages));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_grow_memory_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t reserved = 0;
+    WRP_CHECK(wrp_read_vari32(&vm->opcode_stream, &reserved));
+
+    int32_t delta = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &delta));
+
+    if (delta == 0) {
+        WRP_CHECK(wrp_stk_exec_push_i32(vm, (int32_t)vm->mdle->memories[0].num_pages));
+        return WRP_SUCCESS;
+    }
+
+    uint32_t total_pages = vm->mdle->memories[0].num_pages + (uint32_t)delta;
+
+    if (total_pages > vm->mdle->memories[0].max_pages) {
+        WRP_CHECK(wrp_stk_exec_push_i32(vm, -1));
+        return WRP_SUCCESS;
+    }
+
+    uint8_t *bytes = vm->alloc_fn(total_pages * PAGE_SIZE, 64);
+    int32_t result = -1;
+
+    if (bytes != NULL) {
+        memcpy(bytes, vm->mdle->memories[0].bytes, vm->mdle->memories[0].num_pages * PAGE_SIZE);
+        vm->free_fn(vm->mdle->memories[0].bytes);
+        result = (int32_t)vm->mdle->memories[0].num_pages;
+        vm->mdle->memories[0].bytes = bytes;
+        vm->mdle->memories[0].num_pages = total_pages;
+    }
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_const_op(wrp_vm_t *vm)
@@ -2326,7 +2361,7 @@ wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx)
             return WRP_ERR_INVALID_OPCODE;
         }
 
-        if((vm->err = exec_jump_table[opcode](vm)) != WRP_SUCCESS){
+        if ((vm->err = exec_jump_table[opcode](vm)) != WRP_SUCCESS) {
             //restore program counter
             return vm->err;
         }
