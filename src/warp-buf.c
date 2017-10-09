@@ -32,7 +32,7 @@ static wrp_err_t read_LEB(wrp_buf_t *buf,
     uint64_t byte = 0;
 
     while (true) {
-        if (buf->pos + num_bytes >= buf->sz) {
+        if (wrp_end_of_buf(buf)) {
             return WRP_ERR_INVALID_BUFFER_ACCESS;
         }
 
@@ -70,7 +70,7 @@ wrp_err_t wrp_seek(wrp_buf_t *buf, size_t new_pos)
     return WRP_SUCCESS;
 }
 
-wrp_err_t wrp_end_of_buf(wrp_buf_t *buf)
+bool wrp_end_of_buf(wrp_buf_t *buf)
 {
     //(pos == buf_sz) indicates end of stream.
     return (buf->pos == buf->sz);

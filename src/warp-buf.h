@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,7 +30,7 @@ typedef struct wrp_buf {
 
 wrp_err_t wrp_seek(wrp_buf_t *buf, size_t new_pos);
 
-wrp_err_t wrp_end_of_buf(wrp_buf_t *buf);
+bool wrp_end_of_buf(wrp_buf_t *buf);
 
 wrp_err_t wrp_skip(wrp_buf_t *buf, size_t num_bytes);
 
