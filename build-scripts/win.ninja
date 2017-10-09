@@ -64,6 +64,9 @@ build $builddir/test/i64-tests.o: $
 build $builddir/test/if-tests.o: $
   compile ./test/if-tests.c
 
+build $builddir/test/memory-tests.o: $
+  compile ./test/memory-tests.c
+
 build $builddir/test/nop-tests.o: $
   compile ./test/nop-tests.c
 
@@ -84,6 +87,7 @@ build $target : link $builddir/src/warp-buf.o $
                      $builddir/test/i32-tests.o $
                      $builddir/test/i64-tests.o $
                      $builddir/test/if-tests.o $
+                     $builddir/test/memory-tests.o $
                      $builddir/test/nop-tests.o
 
 default $target

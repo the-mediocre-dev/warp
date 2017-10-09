@@ -25,7 +25,6 @@ void run_if_tests(wrp_vm_t *vm,
     uint32_t *passed,
     uint32_t *failed)
 {
-
     load_mdle(vm, dir, path_buf, path_buf_sz, "if.0.wasm");
 
     START_FUNC_TESTS(vm, "empty");
