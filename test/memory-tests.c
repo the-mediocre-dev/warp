@@ -25,17 +25,15 @@ void run_memory_tests(wrp_vm_t *vm,
     uint32_t *passed,
     uint32_t *failed)
 {
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.0.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.1.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.2.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.3.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.4.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.5.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.6.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.7.wasm", WRP_SUCCESS, (*passed), (*failed));
-    // TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.8.wasm", WRP_SUCCESS, (*passed), (*failed));
-
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.0.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.1.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.2.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.3.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.4.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.5.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.6.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.7.wasm", WRP_SUCCESS, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.8.wasm", WRP_SUCCESS, (*passed), (*failed));
     TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.9.wasm", WRP_SUCCESS, (*passed), (*failed));
     TEST_MODULE(vm, dir, path_buf, path_buf_sz, "memory.10.wasm", WRP_SUCCESS, (*passed), (*failed));
-
 }
