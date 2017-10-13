@@ -220,8 +220,8 @@ void run_nop_tests(wrp_vm_t *vm,
 
     unload_mdle(vm);
 
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "nop.1.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "nop.2.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "nop.3.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
-    TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, "nop.4.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "nop.1.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "nop.2.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "nop.3.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
+    TEST_MODULE(vm, dir, path_buf, path_buf_sz, "nop.4.wasm", WRP_ERR_TYPE_MISMATCH, (*passed), (*failed));
 }

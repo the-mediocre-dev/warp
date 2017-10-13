@@ -16,19 +16,22 @@
 
 #pragma once
 
-#define TEST_INVALID_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name, expected_err, passed, failed)                                                 \
-    {                                                                                                                                                \
-        wrp_reset_vm(vm);                                                                                                                            \
-                                                                                                                                                     \
-        wrp_err_t err = validate_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);                                                                    \
-                                                                                                                                                     \
-        if (err == expected_err) {                                                                                                                   \
-            passed++;                                                                                                                                \
-            printf("invalid module test %s passed\n", mdle_name);                                                                                    \
-        } else {                                                                                                                                     \
-            failed++;                                                                                                                                \
-            printf("invalid module test %s failed. Expected: \"%s\", Actual: \"%s\"\n", mdle_name, wrp_debug_err(expected_err), wrp_debug_err(err)); \
-        }                                                                                                                                            \
+#define TEST_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name, result, passed, failed)        \
+    {                                                                                         \
+        wrp_reset_vm(vm);                                                                     \
+                                                                                              \
+        wrp_err_t err = validate_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);             \
+                                                                                              \
+        if (err == result) {                                                                  \
+            passed++;                                                                         \
+            printf("module test %s passed\n", mdle_name);                                     \
+        } else {                                                                              \
+            failed++;                                                                         \
+            const char *format = "module test %s failed. Expected: \"%s\", Actual: \"%s\"\n"; \
+            const char *result_name = wrp_debug_err(result);                                  \
+            const char *err_name = wrp_debug_err(err);                                        \
+            printf(format, mdle_name, result_name, err_name);                                 \
+        }                                                                                     \
     }
 
 #define START_FUNC_TESTS(vm, func)                                             \
@@ -286,12 +289,12 @@
     END_TEST()
 
 #define TEST_IN_I32_I32_I32_OUT_I32(vm, param_1, param_2, param_3, result) \
-    START_TEST(vm)                                                          \
-    PUSH_I32(vm, param_1)                                                   \
-    PUSH_I32(vm, param_2)                                                   \
-    PUSH_I32(vm, param_3)                                                   \
-    CALL(vm)                                                                \
-    POP_I32(vm, result)                                                     \
+    START_TEST(vm)                                                         \
+    PUSH_I32(vm, param_1)                                                  \
+    PUSH_I32(vm, param_2)                                                  \
+    PUSH_I32(vm, param_3)                                                  \
+    CALL(vm)                                                               \
+    POP_I32(vm, result)                                                    \
     END_TEST()
 
 #define TEST_IN_I32_I32_TRAP(vm, param_1, param_2, err) \
