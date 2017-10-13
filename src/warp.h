@@ -47,7 +47,7 @@ typedef struct wrp_oprd {
 } wrp_oprd_t;
 
 typedef struct wrp_ctrl_frame {
-    wrp_block_t type;
+    uint8_t type;
     size_t address;
     size_t label;
     int8_t signature;
