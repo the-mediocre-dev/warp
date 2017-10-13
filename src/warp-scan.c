@@ -18,6 +18,7 @@
 #include "warp-buf.h"
 #include "warp-config.h"
 #include "warp-error.h"
+#include "warp-initializer-expression.h"
 #include "warp-macros.h"
 #include "warp-wasm.h"
 
@@ -34,9 +35,12 @@ static wrp_err_t scan_preamble(wrp_buf_t *buf)
 
 static wrp_err_t scan_type_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_types));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_types; i++) {
+    out_meta->num_types = count;
+
+    for (uint32_t i = 0; i < count; i++) {
 
         uint8_t form = 0;
         WRP_CHECK(wrp_read_varui7(buf, &form));
@@ -67,14 +71,69 @@ static wrp_err_t scan_type_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_import_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
+
+    out_meta->num_imports = count;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t name_len = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &name_len));
+        WRP_CHECK(wrp_skip(buf, name_len));
+
+        out_meta->import_name_buf_sz += name_len + 1;
+
+        uint32_t field_len = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &field_len));
+        WRP_CHECK(wrp_skip(buf, field_len));
+
+        out_meta->import_field_buf_sz += name_len + 1;
+
+        uint8_t kind = 0;
+        WRP_CHECK(wrp_read_uint8(buf, &kind));
+
+        if (kind == EXTERNAL_FUNC) {
+            out_meta->num_funcs++;
+
+            uint32_t type_idx = 0;
+            WRP_CHECK(wrp_read_varui32(buf, &type_idx));
+        } else if (kind == EXTERNAL_TABLE) {
+            out_meta->num_tables++;
+
+            uint8_t elem_type = 0;
+            WRP_CHECK(wrp_read_varui7(buf, &elem_type));
+
+            uint32_t min_table_sz = 0;
+            uint32_t max_table_sz = MAX_TABLE_SIZE;
+            WRP_CHECK(wrp_read_limits(buf, &min_table_sz, &max_table_sz));
+        } else if (kind == EXTERNAL_MEMORY) {
+            out_meta->num_memories++;
+
+            uint32_t min_pages = 0;
+            uint32_t max_pages = MAX_MEMORY_PAGES;
+            WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
+        } else if (kind == EXTERNAL_GLOBAL) {
+            out_meta->num_globals++;
+
+            int8_t value_type = 0;
+            WRP_CHECK(wrp_read_vari7(buf, &value_type));
+
+            uint8_t mutability = 0;
+            WRP_CHECK(wrp_read_varui1(buf, &mutability));
+        }
+    }
+
     return WRP_SUCCESS;
 }
 
 static wrp_err_t scan_func_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_funcs));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_funcs; i++) {
+    out_meta->num_funcs += count;
+
+    for (uint32_t i = 0; i < count; i++) {
         uint32_t type_idx = 0;
         WRP_CHECK(wrp_read_varui32(buf, &type_idx));
     }
@@ -84,9 +143,12 @@ static wrp_err_t scan_func_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_table_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_tables));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_tables; i++) {
+    out_meta->num_tables += count;
+
+    for (uint32_t i = 0; i < count; i++) {
         uint8_t elem_type = 0;
         WRP_CHECK(wrp_read_varui7(buf, &elem_type));
 
@@ -100,9 +162,12 @@ static wrp_err_t scan_table_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_memory_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_memories));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_memories; i++) {
+    out_meta->num_memories += count;
+
+    for (uint32_t i = 0; i < count; i++) {
         uint32_t min_pages = 0;
         uint32_t max_pages = MAX_MEMORY_PAGES;
         WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
@@ -113,9 +178,12 @@ static wrp_err_t scan_memory_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_global_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_globals));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_globals; i++) {
+    out_meta->num_globals += count;
+
+    for (uint32_t i = 0; i < count; i++) {
         int8_t value_type = 0;
         WRP_CHECK(wrp_read_vari7(buf, &value_type));
 
@@ -128,11 +196,13 @@ static wrp_err_t scan_global_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_export_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_meta->num_exports));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
+    out_meta->num_exports = count;
     char name[MAX_GLOBAL_NAME_SIZE + 1] = {0};
 
-    for (uint32_t i = 0; i < out_meta->num_exports; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         uint32_t name_len = 0;
         WRP_CHECK(wrp_read_string(buf, name, MAX_GLOBAL_NAME_SIZE + 1, &name_len));
 
@@ -141,8 +211,8 @@ static wrp_err_t scan_export_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
         uint8_t kind = 0;
         WRP_CHECK(wrp_read_uint8(buf, &kind));
 
-        uint32_t func_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &func_idx));
+        uint32_t idx = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &idx));
     }
 
     return WRP_SUCCESS;
@@ -220,10 +290,10 @@ static wrp_err_t skip_immediates(wrp_buf_t *buf, uint8_t opcode)
 
 static wrp_err_t scan_code_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
-    uint32_t num_code_segments = 0;
-    WRP_CHECK(wrp_read_varui32(buf, &num_code_segments));
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    for (uint32_t i = 0; i < out_meta->num_funcs; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         size_t code_segment_pos = buf->pos;
 
         uint32_t body_sz;
@@ -273,15 +343,32 @@ static wrp_err_t scan_code_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_data_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
+
+    out_meta->num_data_segments = count;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t mem_idx = 0;
+        uint8_t *init_expr = NULL;
+        uint32_t init_expr_sz = 0;
+        uint32_t size = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &mem_idx));
+        WRP_CHECK(wrp_read_init_expr(buf, init_expr, &init_expr_sz));
+        WRP_CHECK(wrp_read_varui32(buf, &size));
+
+        out_meta->data_init_expr_buf_sz += init_expr_sz;
+        out_meta->data_buf_sz += size;
+
+        WRP_CHECK(wrp_skip(buf, size));
+    }
+
     return WRP_SUCCESS;
 }
 
 wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
     buf->pos = 0;
-
-    //default to 1 memory in case memory section is not present
-    out_meta->num_memories = 1;
 
     WRP_CHECK(scan_preamble(buf));
 
@@ -302,8 +389,7 @@ wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
             break;
 
         case SECTION_IMPORT:
-            //WRP_CHECK(scan_import_section(buf, out_meta));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(scan_import_section(buf, out_meta));
             break;
 
         case SECTION_FUNC:
@@ -340,8 +426,7 @@ wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
             break;
 
         case SECTION_DATA:
-            //WRP_CHECK(scan_data_section(buf, out_meta));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(scan_data_section(buf, out_meta));
             break;
 
         default:

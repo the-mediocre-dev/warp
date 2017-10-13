@@ -269,26 +269,19 @@ typedef struct wrp_wasm_meta {
     uint32_t num_imports;
     size_t import_name_buf_sz;
     size_t import_field_buf_sz;
-    uint32_t num_imported_funcs;
-    uint32_t num_imported_tables;
-    uint32_t num_imported_memories;
-    uint32_t num_imported_globals;
     uint32_t num_funcs;
     uint32_t num_tables;
     uint32_t num_memories;
     uint32_t num_globals;
     uint32_t num_exports;
     size_t export_name_buf_sz;
-    uint32_t num_exported_funcs;
-    uint32_t num_exported_tables;
-    uint32_t num_exported_memories;
-    uint32_t num_exported_globals;
     uint32_t num_elements;
     uint32_t num_code_locals;
     size_t code_buf_sz;
     uint32_t num_block_ops;
     uint32_t num_if_ops;
     uint32_t num_data_segments;
+    size_t data_init_expr_buf_sz;
     size_t data_buf_sz;
 } wrp_wasm_meta_t;
 
@@ -317,16 +310,12 @@ typedef struct wrp_func {
 
 typedef struct wrp_global {
     uint64_t *value;
-    int8_t *type;
+    int8_t type;
+    uint8_t mutability;
 } wrp_global_t;
 
-typedef struct wrp_export {
-    char *name;
-    uint8_t kind;
-    uint32_t idx;
-} wrp_export_t;
-
 typedef struct wrp_table {
+    uint32_t *elements;
     uint32_t num_elements;
     uint32_t max_elements;
 } wrp_table_t;
@@ -341,12 +330,24 @@ typedef struct wrp_data_segment{
     uint8_t *data;
     size_t data_sz;
     uint32_t mem_idx;
+    uint8_t *init_expr;
     int32_t offset;
 } wrp_data_segment_t;
 
+typedef struct wrp_import {
+    char *name;
+    char *field;
+    uint8_t kind;
+    uint32_t idx;
+} wrp_import_t;
+
+typedef struct wrp_export {
+    char *name;
+    uint8_t kind;
+    uint32_t idx;
+} wrp_export_t;
+
 typedef struct wrp_wasm_mdle {
-    //force struct alignment at member level, as struct level
-    //usage of alignas only works in C++, for some magical reason
     alignas(64) int8_t *param_type_buf;
     int8_t *result_type_buf;
     int8_t *local_type_buf;
@@ -356,26 +357,30 @@ typedef struct wrp_wasm_mdle {
     size_t *if_addrs_buf;
     size_t *else_addrs_buf;
     size_t *if_label_buf;
-    uint64_t *global_value_buf;
-    int8_t *global_type_buf;
+    uint64_t *global_buf;
+    char *import_name_buf;
+    char *import_field_buf;
     char *export_name_buf;
+    uint8_t *data_init_expr_buf;
     uint8_t *data_buf;
-
     uint32_t start_func_idx;
     bool start_func_present;
-
     wrp_type_t *types;
     uint32_t num_types;
     wrp_func_t *funcs;
     uint32_t num_funcs;
     wrp_global_t *globals;
     uint32_t num_globals;
-    wrp_export_t *exports;
-    uint32_t num_exports;
+    wrp_table_t tables;
+    uint32_t num_tables;
     wrp_memory_t *memories;
     uint32_t num_memories;
     wrp_data_segment_t *data_segments;
     uint32_t num_data_segments;
+    wrp_import_t *imports;
+    uint32_t num_imports;
+    wrp_export_t *exports;
+    uint32_t num_exports;
 } wrp_wasm_mdle_t;
 
 size_t wrp_mdle_sz(wrp_wasm_meta_t *meta);

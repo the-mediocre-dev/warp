@@ -362,7 +362,7 @@ static wrp_err_t check_get_global(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         return WRP_ERR_INVALID_GLOBAL_IDX;
     }
 
-    int8_t global_type = *out_mdle->globals[global_idx].type;
+    int8_t global_type = out_mdle->globals[global_idx].type;
     WRP_CHECK(wrp_stk_check_push_op(vm, global_type));
     return WRP_SUCCESS;
 }
@@ -376,7 +376,7 @@ static wrp_err_t check_set_global(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         return WRP_ERR_INVALID_GLOBAL_IDX;
     }
 
-    int8_t global_type = *out_mdle->globals[global_idx].type;
+    int8_t global_type = out_mdle->globals[global_idx].type;
     int8_t actual_type = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, global_type, &actual_type));
     return WRP_SUCCESS;

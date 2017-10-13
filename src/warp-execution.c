@@ -45,12 +45,14 @@ static wrp_err_t exec_block_op(wrp_vm_t *vm)
 {
     size_t block_address = vm->opcode_stream.pos - 1;
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+
     int8_t signature = 0;
     WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
 
     uint32_t block_idx = 0;
     WRP_CHECK(wrp_get_block_idx(vm->mdle, func_idx, block_address, &block_idx));
-    WRP_CHECK(wrp_stk_exec_push_block(vm, vm->mdle->block_labels[block_idx], BLOCK, signature))
+    WRP_CHECK(wrp_stk_exec_push_block(vm, func->block_labels[block_idx], BLOCK, signature))
 
     return WRP_SUCCESS;
 }
@@ -67,6 +69,7 @@ static wrp_err_t exec_if_op(wrp_vm_t *vm)
 {
     size_t if_address = vm->opcode_stream.pos - 1;
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
     int8_t signature = 0;
     WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
 
@@ -80,16 +83,16 @@ static wrp_err_t exec_if_op(wrp_vm_t *vm)
     int32_t condition = 0;
     WRP_CHECK(wrp_stk_exec_pop_i32(vm, &condition));
 
-    if (condition != 0 || vm->mdle->else_addresses[if_idx] != 0) {
-        WRP_CHECK(wrp_stk_exec_push_block(vm, vm->mdle->if_labels[if_idx], BLOCK_IF, signature));
+    if (condition != 0 || func->else_addrs[if_idx] != 0) {
+        WRP_CHECK(wrp_stk_exec_push_block(vm, func->if_labels[if_idx], BLOCK_IF, signature));
     }
 
-    if (condition == 0 && vm->mdle->else_addresses[if_idx] == 0) {
-        vm->opcode_stream.pos = vm->mdle->if_labels[if_idx] + 1;
+    if (condition == 0 && func->else_addrs[if_idx] == 0) {
+        vm->opcode_stream.pos = func->if_labels[if_idx] + 1;
     }
 
-    if (condition == 0 && vm->mdle->else_addresses[if_idx] != 0) {
-        vm->opcode_stream.pos = vm->mdle->else_addresses[if_idx] + 1;
+    if (condition == 0 && func->else_addrs[if_idx] != 0) {
+        vm->opcode_stream.pos = func->else_addrs[if_idx] + 1;
     }
 
     return WRP_SUCCESS;
