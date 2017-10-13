@@ -256,8 +256,6 @@ static wrp_err_t load_export_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             return WRP_ERR_INVALID_EXPORT;
         } else if (out_mdle->exports[i].kind == EXTERNAL_GLOBAL) {
             return WRP_ERR_INVALID_EXPORT;
-        } else {
-            return WRP_ERR_INVALID_EXPORT;
         }
     }
 
