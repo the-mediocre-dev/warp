@@ -43,16 +43,15 @@ static wrp_err_t check_block(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     size_t address = vm->opcode_stream.pos - 1;
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t block_offset = out_mdle->block_offsets[func_idx];
-    uint32_t block_idx = out_mdle->block_counts[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
 
-    out_mdle->block_addresses[block_offset + block_idx] = address;
-    out_mdle->block_counts[func_idx]++;
+    func->block_addrs[func->num_blocks] = address;
+    func->num_blocks++;
 
     int8_t signature = 0;
     WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
 
-    WRP_CHECK(wrp_stk_check_push_block(vm, address, BLOCK_TYPE, signature));
+    WRP_CHECK(wrp_stk_check_push_block(vm, address, BLOCK, signature));
 
     return WRP_SUCCESS;
 }
@@ -63,7 +62,7 @@ static wrp_err_t check_loop(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
     int8_t signature = 0;
     WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
-    WRP_CHECK(wrp_stk_check_push_block(vm, address, LOOP_TYPE, signature));
+    WRP_CHECK(wrp_stk_check_push_block(vm, address, BLOCK_LOOP, signature));
     return WRP_SUCCESS;
 }
 
@@ -71,33 +70,33 @@ static wrp_err_t check_if(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     size_t address = vm->opcode_stream.pos - 1;
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t if_offset = out_mdle->if_offsets[func_idx];
-    uint32_t if_idx = out_mdle->if_counts[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
 
-    out_mdle->if_addresses[if_offset + if_idx] = address;
-    out_mdle->if_counts[func_idx]++;
+    func->if_addrs[func->num_ifs] = address;
+    func->num_ifs++;
 
     int8_t signature = 0;
     int8_t condition_type = 0;
     WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &signature));
     WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &condition_type));
-    WRP_CHECK(wrp_stk_check_push_block(vm, address, IF_TYPE, signature));
+    WRP_CHECK(wrp_stk_check_push_block(vm, address, BLOCK_IF, signature));
     return WRP_SUCCESS;
 }
 
 static wrp_err_t check_else(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
-    if (vm->ctrl_stk_head == -1 || vm->ctrl_stk[vm->ctrl_stk_head].type != IF_TYPE) {
+    if (vm->ctrl_stk_head == -1 || vm->ctrl_stk[vm->ctrl_stk_head].type != BLOCK_IF) {
         return WRP_ERR_MDLE_IF_ELSE_MISMATCH;
     }
 
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
     size_t if_address = vm->ctrl_stk[vm->ctrl_stk_head].address;
     size_t else_address = vm->opcode_stream.pos - 1;
     uint32_t if_idx = 0;
     WRP_CHECK(wrp_get_if_idx(out_mdle, func_idx, if_address, &if_idx));
 
-    out_mdle->else_addresses[if_idx] = else_address;
+    func->else_addrs[if_idx] = else_address;
 
     //validate the if portion of the if / else
     WRP_CHECK(wrp_stk_check_block_sig(vm, 0, false));
@@ -111,6 +110,9 @@ static wrp_err_t check_else(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
 static wrp_err_t check_end(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
+    uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+
     if (vm->ctrl_stk[vm->ctrl_stk_head].type == BLOCK_FUNC) {
         WRP_CHECK(wrp_stk_check_func_sig(vm));
         return WRP_SUCCESS;
@@ -122,7 +124,7 @@ static wrp_err_t check_end(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         uint32_t block_idx = 0;
         WRP_CHECK(wrp_get_block_idx(out_mdle, func_idx, block_address, &block_idx));
 
-        out_mdle->block_labels[block_idx] = vm->opcode_stream.pos - 1;
+        func->block_labels[block_idx] = vm->opcode_stream.pos - 1;
     }
 
     if (vm->ctrl_stk[vm->ctrl_stk_head].type == BLOCK_IF) {
@@ -131,9 +133,9 @@ static wrp_err_t check_end(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         uint32_t if_idx = 0;
         WRP_CHECK(wrp_get_if_idx(out_mdle, func_idx, if_address, &if_idx));
 
-        out_mdle->if_labels[if_idx] = vm->opcode_stream.pos - 1;
+        func->if_labels[if_idx] = vm->opcode_stream.pos - 1;
 
-        if (out_mdle->else_addresses[if_idx] == 0 && vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
+        if (func->else_addrs[if_idx] == 0 && vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
             return WRP_ERR_VALUEFUL_IF_WITH_NO_ELSE;
         }
     }
@@ -219,23 +221,21 @@ static wrp_err_t check_call(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         return WRP_ERR_INVALID_FUNC_IDX;
     }
 
-    uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
-    uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
+    uint32_t type_idx = out_mdle->funcs[func_idx].type_idx;
+    uint32_t num_params = vm->mdle->types[type_idx].num_params;
 
     //check and pop params in reverse order
-    for (uint32_t i = 0; i < param_count; i++) {
-        int8_t param_type = out_mdle->param_types[param_type_offset + (param_count - i - 1)];
+    for (uint32_t i = 0; i < num_params; i++) {
+        int8_t param_type = out_mdle->types[type_idx].param_types[(num_params - i - 1)];
         int8_t actual_type = 0;
         WRP_CHECK(wrp_stk_check_pop_op(vm, param_type, &actual_type));
     }
 
-    uint32_t result_count = out_mdle->result_counts[type_idx];
-    uint32_t result_type_offset = out_mdle->result_type_offsets[type_idx];
+    uint32_t num_results = vm->mdle->types[type_idx].num_params;
 
     //TODO handle multiple results
-    if (result_count > 0) {
-        int8_t result_type = out_mdle->result_types[result_type_offset];
+    if (num_results > 0) {
+        int8_t result_type = out_mdle->types[type_idx].result_types[0];
         WRP_CHECK(wrp_stk_check_push_op(vm, result_type));
     }
 
@@ -287,20 +287,17 @@ static wrp_err_t check_select(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 static wrp_err_t check_get_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
-    uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t local_count = out_mdle->local_counts[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
     int8_t local_type = 0;
 
-    if (local_idx < param_count) {
-        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
-        local_type = out_mdle->param_types[param_type_offset + local_idx];
-    } else if (local_idx < param_count + local_count) {
-        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    if (local_idx < type->num_params) {
+        local_type = type->param_types[local_idx];
+    } else if (local_idx < type->num_params + func->num_locals) {
+        local_type = func->local_types[local_idx - type->num_params];
     } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
@@ -312,20 +309,17 @@ static wrp_err_t check_get_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 static wrp_err_t check_set_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
-    uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t local_count = out_mdle->local_counts[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
     int8_t local_type = 0;
 
-    if (local_idx < param_count) {
-        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
-        local_type = out_mdle->param_types[param_type_offset + local_idx];
-    } else if (local_idx < param_count + local_count) {
-        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    if (local_idx < type->num_params) {
+        local_type = type->param_types[local_idx];
+    } else if (local_idx < type->num_params + func->num_locals) {
+        local_type = func->local_types[local_idx - type->num_params];
     } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
@@ -338,20 +332,17 @@ static wrp_err_t check_set_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 static wrp_err_t check_tee_local(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = out_mdle->func_type_idxs[func_idx];
-    uint32_t param_count = out_mdle->param_counts[type_idx];
-    uint32_t local_count = out_mdle->local_counts[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
     uint32_t local_idx = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &local_idx));
 
     int8_t local_type = 0;
 
-    if (local_idx < param_count) {
-        uint32_t param_type_offset = out_mdle->param_type_offsets[type_idx];
-        local_type = out_mdle->param_types[param_type_offset + local_idx];
-    } else if (local_idx < param_count + local_count) {
-        uint32_t local_type_offset = out_mdle->local_type_offsets[func_idx];
-        local_type = out_mdle->local_types[local_type_offset + (local_idx - param_count)];
+    if (local_idx < type->num_params) {
+        local_type = type->param_types[local_idx];
+    } else if (local_idx < type->num_params + func->num_locals) {
+        local_type = func->local_types[local_idx - type->num_params];
     } else {
         return WRP_ERR_INVALID_LOCAL_IDX;
     }
@@ -371,7 +362,7 @@ static wrp_err_t check_get_global(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         return WRP_ERR_INVALID_GLOBAL_IDX;
     }
 
-    int8_t global_type = out_mdle->global_types[global_idx];
+    int8_t global_type = *out_mdle->globals[global_idx].type;
     WRP_CHECK(wrp_stk_check_push_op(vm, global_type));
     return WRP_SUCCESS;
 }
@@ -385,7 +376,7 @@ static wrp_err_t check_set_global(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         return WRP_ERR_INVALID_GLOBAL_IDX;
     }
 
-    int8_t global_type = out_mdle->global_types[global_idx];
+    int8_t global_type = *out_mdle->globals[global_idx].type;
     int8_t actual_type = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, global_type, &actual_type));
     return WRP_SUCCESS;
@@ -933,22 +924,29 @@ wrp_err_t wrp_type_check_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     vm->mdle = out_mdle;
 
+    uint32_t block_offset = 0;
+    uint32_t if_offset = 0;
+
     for (uint32_t i = 0; i < out_mdle->num_funcs; i++) {
         wrp_reset_vm(vm);
 
         WRP_CHECK(wrp_stk_check_push_call(vm, i));
         WRP_CHECK(wrp_stk_check_push_block(vm, 0, BLOCK_FUNC, VOID));
 
-        vm->opcode_stream.bytes = out_mdle->code_bodies[i];
-        vm->opcode_stream.sz = out_mdle->code_bodies_sz[i];
+        vm->opcode_stream.bytes = out_mdle->funcs[i].code;
+        vm->opcode_stream.sz = out_mdle->funcs[i].code_sz;
         vm->opcode_stream.pos = 0;
 
         if (i > 0) {
-            out_mdle->if_offsets[i] = out_mdle->if_offsets[i - 1];
-            out_mdle->if_offsets[i] += out_mdle->if_counts[i - 1];
-            out_mdle->block_offsets[i] = out_mdle->block_offsets[i - 1];
-            out_mdle->block_offsets[i] += out_mdle->block_counts[i - 1];
+            block_offset += out_mdle->funcs[i - 1].num_blocks;
+            if_offset += out_mdle->funcs[i - 1].num_ifs;
         }
+
+        out_mdle->funcs[i].block_addrs = &out_mdle->block_addrs_buf[block_offset];
+        out_mdle->funcs[i].block_labels = &out_mdle->block_label_buf[block_offset];
+        out_mdle->funcs[i].if_addrs = &out_mdle->if_addrs_buf[if_offset];
+        out_mdle->funcs[i].else_addrs = &out_mdle->else_addrs_buf[if_offset];
+        out_mdle->funcs[i].if_labels = &out_mdle->if_label_buf[if_offset];
 
         while (vm->opcode_stream.pos < vm->opcode_stream.sz) {
             uint8_t opcode = vm->opcode_stream.bytes[vm->opcode_stream.pos++];

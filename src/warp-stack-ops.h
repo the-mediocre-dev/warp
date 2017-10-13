@@ -44,7 +44,7 @@ wrp_err_t wrp_stk_exec_pop_f64(wrp_vm_t *vm, double *value);
 
 wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
     size_t label,
-    wrp_block_t type,
+    uint32_t block_type,
     int8_t signature);
 
 wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth);
@@ -65,7 +65,7 @@ wrp_err_t wrp_stk_check_pop_op(wrp_vm_t *vm, int8_t expected_type, int8_t *type)
 
 wrp_err_t wrp_stk_check_push_block(wrp_vm_t *vm,
     size_t address,
-    wrp_block_t type,
+    uint32_t block_type,
     int8_t signature);
 
 wrp_err_t wrp_stk_check_pop_block(wrp_vm_t *vm);

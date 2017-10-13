@@ -26,35 +26,25 @@
 size_t wrp_mdle_sz(wrp_wasm_meta_t *meta)
 {
     size_t mdle_sz = sizeof(wrp_wasm_mdle_t);
-    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint8_t));
     mdle_sz += ALIGN_64(meta->num_type_params * sizeof(int8_t *));
-    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
     mdle_sz += ALIGN_64(meta->num_type_returns * sizeof(int8_t *));
-    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_types * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_memories * sizeof(wrp_memory_t));
+    mdle_sz += ALIGN_64(meta->num_code_locals * sizeof(int8_t));
+    mdle_sz += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
+    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
     mdle_sz += ALIGN_64(meta->num_globals * sizeof(uint64_t));
     mdle_sz += ALIGN_64(meta->num_globals * sizeof(int8_t));
     mdle_sz += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
-    mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_exports * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_code_locals * sizeof(int8_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_block_ops * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    mdle_sz += ALIGN_64(meta->data_buf_sz * sizeof(uint8_t));
+    mdle_sz += ALIGN_64(meta->num_types * sizeof(wrp_type_t));
+    mdle_sz += ALIGN_64(meta->num_funcs * sizeof(wrp_func_t));
+    mdle_sz += ALIGN_64(meta->num_globals * sizeof(wrp_global_t));
+    mdle_sz += ALIGN_64(meta->num_exports * sizeof(wrp_export_t));
+    mdle_sz += ALIGN_64(meta->num_memories * sizeof(wrp_memory_t));
+    mdle_sz += ALIGN_64(meta->num_data_segments * sizeof(wrp_data_segment_t));
     return mdle_sz;
 }
 
@@ -63,92 +53,62 @@ void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle)
     uint8_t *ptr = (uint8_t *)out_mdle;
     size_t offset = sizeof(wrp_wasm_mdle_t);
 
-    out_mdle->forms = (uint8_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_types * sizeof(uint8_t));
-
-    out_mdle->param_types = (int8_t *)(ptr + offset);
+    out_mdle->param_type_buf = (int8_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_type_params * sizeof(uint8_t));
 
-    out_mdle->param_type_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
-
-    out_mdle->param_counts = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
-
-    out_mdle->result_types = (int8_t *)(ptr + offset);
+    out_mdle->result_type_buf = (int8_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_type_returns * sizeof(uint8_t));
 
-    out_mdle->result_type_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->local_type_buf = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_code_locals * sizeof(uint8_t));
 
-    out_mdle->result_counts = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_types * sizeof(uint32_t));
+    out_mdle->code_buf = (uint8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
 
-    out_mdle->func_type_idxs = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->block_addrs_buf = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+
+    out_mdle->block_label_buf = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
+
+    out_mdle->if_addrs_buf = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    out_mdle->else_addrs_buf = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    out_mdle->if_label_buf = (size_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
+
+    out_mdle->global_value_buf = (uint64_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_globals * sizeof(uint64_t));
+
+    out_mdle->global_type_buf = (int8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_globals * sizeof(uint8_t));
+
+    out_mdle->export_name_buf = (char *)(ptr + offset);
+    offset += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
+
+    out_mdle->data_buf = (uint8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->data_buf_sz * sizeof(uint8_t));
+
+    out_mdle->types = (wrp_type_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_types * sizeof(wrp_type_t));
+
+    out_mdle->funcs = (wrp_func_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_funcs * sizeof(wrp_func_t));
+
+    out_mdle->globals = (wrp_global_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_globals * sizeof(wrp_global_t));
+
+    out_mdle->exports = (wrp_export_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_exports * sizeof(wrp_export_t));
 
     out_mdle->memories = (wrp_memory_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_memories * sizeof(wrp_memory_t));
 
-    out_mdle->global_values = (uint64_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_globals * sizeof(uint64_t));
-
-    out_mdle->global_types = (int8_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_globals * sizeof(uint8_t));
-
-    out_mdle->export_names = (char *)(ptr + offset);
-    offset += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
-
-    out_mdle->export_name_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_exports * sizeof(uint32_t));
-
-    out_mdle->export_func_idxs = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_exports * sizeof(uint32_t));
-
-    out_mdle->local_types = (int8_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_code_locals * sizeof(uint8_t));
-
-    out_mdle->local_type_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
-    out_mdle->local_counts = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
-    out_mdle->code = (uint8_t *)(ptr + offset);
-    offset += ALIGN_64(meta->code_buf_sz * sizeof(uint8_t));
-
-    out_mdle->code_bodies = (uint8_t **)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint8_t *));
-
-    out_mdle->code_bodies_sz = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(size_t));
-
-    out_mdle->block_addresses = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
-
-    out_mdle->block_labels = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_block_ops * sizeof(size_t));
-
-    out_mdle->block_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
-    out_mdle->block_counts = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
-    out_mdle->if_addresses = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-
-    out_mdle->else_addresses = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-
-    out_mdle->if_labels = (size_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_if_ops * sizeof(size_t));
-
-    out_mdle->if_offsets = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
-
-    out_mdle->if_counts = (uint32_t *)(ptr + offset);
-    offset += ALIGN_64(meta->num_funcs * sizeof(uint32_t));
+    out_mdle->data_segments = (wrp_data_segment_t *)(ptr + offset);
+    offset += ALIGN_64(meta->num_data_segments * sizeof(wrp_data_segment_t));
 
     //set memory
     out_mdle->num_memories = 1;
@@ -249,9 +209,11 @@ wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
     size_t block_address,
     uint32_t *block_idx)
 {
-    for (uint32_t i = 0; i < mdle->block_counts[func_idx]; i++) {
-        if (mdle->block_addresses[i + mdle->block_offsets[func_idx]] == block_address) {
-            *block_idx = i + mdle->block_offsets[func_idx];
+    wrp_func_t *func = &mdle->funcs[func_idx];
+
+    for (uint32_t i = 0; i < func->num_blocks; i++) {
+        if (func->block_addrs[i] == block_address) {
+            *block_idx = i;
             return WRP_SUCCESS;
         }
     }
@@ -264,9 +226,11 @@ wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     size_t if_address,
     uint32_t *if_idx)
 {
-    for (uint32_t i = 0; i < mdle->if_counts[func_idx]; i++) {
-        if (mdle->if_addresses[i + mdle->if_offsets[func_idx]] == if_address) {
-            *if_idx = i + mdle->if_offsets[func_idx];
+    wrp_func_t *func = &mdle->funcs[func_idx];
+
+    for (uint32_t i = 0; i < func->num_ifs; i++) {
+        if (func->if_addrs[i] == if_address) {
+            *if_idx = i;
             return WRP_SUCCESS;
         }
     }
@@ -279,11 +243,13 @@ wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
     uint32_t *func_idx)
 {
     for (uint32_t i = 0; i < mdle->num_exports; i++) {
-        char *name = &mdle->export_names[mdle->export_name_offsets[i]];
+        if (mdle->exports[i].kind == EXTERNAL_FUNC) {
+            char *name = mdle->exports[i].name;
 
-        if (strcmp(name, func_name) == 0) {
-            *func_idx = mdle->export_func_idxs[i];
-            return WRP_SUCCESS;
+            if (strcmp(name, func_name) == 0) {
+                *func_idx = mdle->exports[i].idx;
+                return WRP_SUCCESS;
+            }
         }
     }
 

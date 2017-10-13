@@ -181,7 +181,7 @@ wrp_err_t wrp_stk_exec_pop_f64(wrp_vm_t *vm, double *value)
 
 wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
     size_t label,
-    wrp_block_t type,
+    uint32_t block_type,
     int8_t signature)
 {
     if (vm->ctrl_stk_head >= WRP_BLOCK_STK_SZ) {
@@ -190,7 +190,7 @@ wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
 
     vm->ctrl_stk_head++;
     vm->ctrl_stk[vm->ctrl_stk_head].label = label;
-    vm->ctrl_stk[vm->ctrl_stk_head].type = type;
+    vm->ctrl_stk[vm->ctrl_stk_head].type = block_type;
     vm->ctrl_stk[vm->ctrl_stk_head].signature = signature;
     vm->ctrl_stk[vm->ctrl_stk_head].oprd_stk_ptr = vm->oprd_stk_head;
     return WRP_SUCCESS;
@@ -241,31 +241,28 @@ wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx)
         return WRP_ERR_CALL_STK_OVERFLOW;
     }
 
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
-    uint32_t param_count = vm->mdle->param_counts[type_idx];
-    uint32_t param_type_offset = vm->mdle->param_type_offsets[type_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
 
-    if (call_frame_operand_count(vm) < param_count) {
+    if (call_frame_operand_count(vm) < type->num_params) {
         return WRP_ERR_TYPE_MISMATCH;
     }
 
     //validate operand stack
-    for (uint32_t i = 0; i < param_count; i++) {
-        int32_t operand_idx = vm->oprd_stk_head - (param_count - 1) + i;
+    for (uint32_t i = 0; i < type->num_params; i++) {
+        int32_t operand_idx = vm->oprd_stk_head - (type->num_params - 1) + i;
         uint8_t operand_type = vm->oprd_stk[operand_idx].type;
 
-        if (operand_type != vm->mdle->param_types[param_type_offset + i]) {
+        if (operand_type != type->param_types[i]) {
             return WRP_ERR_TYPE_MISMATCH;
         }
     }
 
-    uint32_t local_count = vm->mdle->local_counts[func_idx];
-    uint32_t local_type_offset = vm->mdle->local_type_offsets[func_idx];
+    uint32_t num_locals = vm->mdle->funcs[func_idx].num_locals;
 
     //push locals
-    for (uint32_t i = 0; i < local_count; i++) {
-        uint32_t local_idx = local_type_offset + i;
-        WRP_CHECK(wrp_stk_exec_push_op(vm, 0, vm->mdle->local_types[local_idx]));
+    for (uint32_t i = 0; i < num_locals; i++) {
+        WRP_CHECK(wrp_stk_exec_push_op(vm, 0, func->local_types[i]));
     }
 
     //push frame
@@ -276,12 +273,12 @@ wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx)
     vm->call_stk[vm->call_stk_head].return_ptr = vm->opcode_stream.pos;
 
     //set opcode stream
-    vm->opcode_stream.bytes = vm->mdle->code_bodies[func_idx];
-    vm->opcode_stream.sz = vm->mdle->code_bodies_sz[func_idx];
+    vm->opcode_stream.bytes = func->code;
+    vm->opcode_stream.sz = func->code_sz;
     vm->opcode_stream.pos = 0;
 
     //push implicit func block, with label as final OP_END
-    WRP_CHECK(wrp_stk_exec_push_block(vm, vm->mdle->code_bodies_sz[func_idx], BLOCK_FUNC, VOID));
+    WRP_CHECK(wrp_stk_exec_push_block(vm, func->code_sz, BLOCK_FUNC, VOID));
 
     return WRP_SUCCESS;
 }
@@ -293,11 +290,10 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
     }
 
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
-    uint32_t result_count = vm->mdle->result_counts[type_idx];
-    uint32_t result_type_offset = vm->mdle->result_type_offsets[type_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
 
-    if (call_frame_operand_count(vm) < result_count) {
+    if (call_frame_operand_count(vm) < type->num_results) {
         return WRP_ERR_TYPE_MISMATCH;
     }
 
@@ -305,11 +301,11 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
     uint8_t result_type = 0;
 
     //TODO handle multiple results
-    if (result_count > 0) {
+    if (type->num_results > 0) {
         result = vm->oprd_stk[vm->oprd_stk_head].value;
         result_type = vm->oprd_stk[vm->oprd_stk_head].type;
 
-        if (result_type != vm->mdle->result_types[result_type_offset]) {
+        if (result_type != type->result_types[0]) {
             return WRP_ERR_TYPE_MISMATCH;
         }
     }
@@ -317,8 +313,8 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
     //set opcode stream
     if (vm->call_stk_head > 0) {
         uint32_t return_func_idx = vm->call_stk[vm->call_stk_head - 1].func_idx;
-        vm->opcode_stream.bytes = vm->mdle->code_bodies[return_func_idx];
-        vm->opcode_stream.sz = vm->mdle->code_bodies_sz[return_func_idx];
+        vm->opcode_stream.bytes = vm->mdle->funcs[return_func_idx].code;
+        vm->opcode_stream.sz = vm->mdle->funcs[return_func_idx].code_sz;
         vm->opcode_stream.pos = vm->call_stk[vm->call_stk_head].return_ptr;
     } else {
         vm->opcode_stream.bytes = NULL;
@@ -332,13 +328,13 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
     vm->call_stk_head--;
 
     //pop locals
-    vm->oprd_stk_head -= vm->mdle->local_counts[func_idx];
+    vm->oprd_stk_head -= func->num_locals;
 
     //pop args
-    vm->oprd_stk_head -= vm->mdle->param_counts[type_idx];
+    vm->oprd_stk_head -= type->num_params;
 
     //push results
-    if (result_count > 0) {
+    if (type->num_results > 0) {
         WRP_CHECK(wrp_stk_exec_push_op(vm, result, result_type));
     }
 
@@ -348,11 +344,11 @@ wrp_err_t wrp_stk_exec_pop_call(wrp_vm_t *vm)
 wrp_err_t wrp_stk_exec_call_frame_tail(wrp_vm_t *vm, int32_t *out_tail)
 {
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
-    uint32_t param_count = vm->mdle->param_counts[type_idx];
-    uint32_t local_count = vm->mdle->local_counts[func_idx];
+    uint32_t type_idx = vm->mdle->funcs[func_idx].type_idx;
+    uint32_t num_params = vm->mdle->types[type_idx].num_params;
+    uint32_t num_locals = vm->mdle->funcs[func_idx].num_locals;
     uint32_t operand_stk_ptr = vm->call_stk[vm->call_stk_head].oprd_stk_ptr;
-    *out_tail = (operand_stk_ptr + 1) - local_count - param_count;
+    *out_tail = (operand_stk_ptr + 1) - num_locals - num_params;
     return WRP_SUCCESS;
 }
 
@@ -375,16 +371,17 @@ wrp_err_t wrp_stk_check_func_sig(wrp_vm_t *vm)
     }
 
     uint32_t func_idx = vm->call_stk[vm->call_stk_head].func_idx;
-    uint32_t type_idx = vm->mdle->func_type_idxs[func_idx];
+    wrp_func_t *func = &vm->mdle->funcs[func_idx];
+    wrp_type_t *type = &vm->mdle->types[func->type_idx];
     uint32_t oprd_count = (vm->oprd_stk_head + 1) - (vm->ctrl_stk[vm->ctrl_stk_head].oprd_stk_ptr + 1);
 
     if (!vm->ctrl_stk[vm->ctrl_stk_head].unreachable) {
 
-        if (vm->mdle->result_counts[type_idx] == 0 && oprd_count != 0) {
+        if (type->num_results == 0 && oprd_count != 0) {
             return WRP_ERR_TYPE_MISMATCH;
         }
 
-        if (vm->mdle->result_counts[type_idx] != 0 && oprd_count == 0) {
+        if (type->num_results != 0 && oprd_count == 0) {
             return WRP_ERR_TYPE_MISMATCH;
         }
     }
@@ -392,9 +389,8 @@ wrp_err_t wrp_stk_check_func_sig(wrp_vm_t *vm)
     int8_t result_type = 0;
 
     //pop the results
-    if (vm->mdle->result_counts[type_idx] != 0) {
-        uint32_t result_type_offset = vm->mdle->result_type_offsets[type_idx];
-        WRP_CHECK(wrp_stk_check_pop_op(vm, vm->mdle->result_types[result_type_offset], &result_type));
+    if (type->num_results != 0) {
+        WRP_CHECK(wrp_stk_check_pop_op(vm, type->result_types[0], &result_type));
     }
 
     return WRP_SUCCESS;
@@ -446,7 +442,7 @@ wrp_err_t wrp_stk_check_pop_op(wrp_vm_t *vm, int8_t expected_type, int8_t *type)
 
 wrp_err_t wrp_stk_check_push_block(wrp_vm_t *vm,
     size_t address,
-    wrp_block_t type,
+    uint32_t block_type,
     int8_t signature)
 {
     if (vm->ctrl_stk_head >= WRP_BLOCK_STK_SZ) {
@@ -458,7 +454,7 @@ wrp_err_t wrp_stk_check_push_block(wrp_vm_t *vm,
     }
 
     vm->ctrl_stk_head++;
-    vm->ctrl_stk[vm->ctrl_stk_head].type = type;
+    vm->ctrl_stk[vm->ctrl_stk_head].type = block_type;
     vm->ctrl_stk[vm->ctrl_stk_head].address = address;
     vm->ctrl_stk[vm->ctrl_stk_head].label = 0;
     vm->ctrl_stk[vm->ctrl_stk_head].signature = signature;
@@ -516,7 +512,7 @@ wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch)
     }
 
     //loop labels have an arity of 0
-    if (branch && vm->ctrl_stk[block_idx].type == LOOP_TYPE) {
+    if (branch && vm->ctrl_stk[block_idx].type == BLOCK_LOOP) {
         return WRP_SUCCESS;
     }
 

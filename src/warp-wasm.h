@@ -21,8 +21,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "warp-types.h"
 #include "warp-config.h"
+#include "warp-types.h"
 
 // section encodings
 #define SECTION_CUSTOM          0x00
@@ -51,34 +51,21 @@
 #define FUNC                    0x60    // -0x20
 #define VOID                    0x40    // -0x40
 
-// export types
-#define FUNC_EXPORT             0x00
-#define TABLE_EXPORT            0x01
-#define MEMORY_EXPORT           0x03
-#define GLOBAL_EXPORT           0x04
-
-// module validation result codes
-#define VALID_MODULE            0x00
-#define INVALID_MODULE          0x01
-#define INVALID_MAGIC_NUMBER    0x02
-#define INVALID_VERSION         0x03
+//external kinds
+#define EXTERNAL_FUNC           0x00
+#define EXTERNAL_TABLE          0x01
+#define EXTERNAL_MEMORY         0x02
+#define EXTERNAL_GLOBAL         0x03
 
 // mutability
 #define GLOBAL_IMMUTABLE        0x00
 #define GLOBAL_MUTABLE          0x01
 
-// blocks. Not defined in the spec
+//block types
 #define BLOCK                   0x00
 #define BLOCK_FUNC              0x01
 #define BLOCK_IF                0x02
 #define BLOCK_LOOP              0x03
-
-typedef enum wrp_block{
-    BLOCK_TYPE = 0x00,
-    FUNC_TYPE = 0x01,
-    IF_TYPE = 0x02,
-    LOOP_TYPE = 0x03
-} wrp_block_t;
 
 // op codes
 #define OP_UNREACHABLE          0x00
@@ -279,18 +266,70 @@ typedef struct wrp_wasm_meta {
     uint32_t num_types;
     uint32_t num_type_params;
     uint32_t num_type_returns;
+    uint32_t num_imports;
+    size_t import_name_buf_sz;
+    size_t import_field_buf_sz;
+    uint32_t num_imported_funcs;
+    uint32_t num_imported_tables;
+    uint32_t num_imported_memories;
+    uint32_t num_imported_globals;
     uint32_t num_funcs;
     uint32_t num_tables;
     uint32_t num_memories;
     uint32_t num_globals;
     uint32_t num_exports;
     size_t export_name_buf_sz;
+    uint32_t num_exported_funcs;
+    uint32_t num_exported_tables;
+    uint32_t num_exported_memories;
+    uint32_t num_exported_globals;
     uint32_t num_elements;
     uint32_t num_code_locals;
     size_t code_buf_sz;
     uint32_t num_block_ops;
     uint32_t num_if_ops;
+    uint32_t num_data_segments;
+    size_t data_buf_sz;
 } wrp_wasm_meta_t;
+
+typedef struct wrp_type {
+    uint8_t form;
+    int8_t *param_types;
+    uint32_t num_params;
+    int8_t *result_types;
+    uint32_t num_results;
+} wrp_type_t;
+
+typedef struct wrp_func {
+    uint32_t type_idx;
+    int8_t *local_types;
+    uint32_t num_locals;
+    uint8_t *code;
+    size_t code_sz;
+    size_t *block_addrs;
+    size_t *block_labels;
+    uint32_t num_blocks;
+    size_t *if_addrs;
+    size_t *if_labels;
+    size_t *else_addrs;
+    uint32_t num_ifs;
+} wrp_func_t;
+
+typedef struct wrp_global {
+    uint64_t *value;
+    int8_t *type;
+} wrp_global_t;
+
+typedef struct wrp_export {
+    char *name;
+    uint8_t kind;
+    uint32_t idx;
+} wrp_export_t;
+
+typedef struct wrp_table {
+    uint32_t num_elements;
+    uint32_t max_elements;
+} wrp_table_t;
 
 typedef struct wrp_memory {
     uint8_t *bytes;
@@ -298,45 +337,45 @@ typedef struct wrp_memory {
     uint32_t max_pages;
 } wrp_memory_t;
 
+typedef struct wrp_data_segment{
+    uint8_t *data;
+    size_t data_sz;
+    uint32_t mem_idx;
+    int32_t offset;
+} wrp_data_segment_t;
+
 typedef struct wrp_wasm_mdle {
     //force struct alignment at member level, as struct level
     //usage of alignas only works in C++, for some magical reason
-    alignas(64) uint8_t *forms;
-    int8_t *param_types;
-    uint32_t *param_type_offsets;
-    uint32_t *param_counts;
-    int8_t *result_types;
-    uint32_t *result_type_offsets;
-    uint32_t *result_counts;
-    uint32_t num_types;
-    uint32_t *func_type_idxs;
-    uint32_t num_funcs;
-    wrp_memory_t *memories;
-    uint32_t num_memories;
-    uint64_t *global_values;
-    int8_t *global_types;
-    uint32_t num_globals;
+    alignas(64) int8_t *param_type_buf;
+    int8_t *result_type_buf;
+    int8_t *local_type_buf;
+    uint8_t *code_buf;
+    size_t *block_addrs_buf;
+    size_t *block_label_buf;
+    size_t *if_addrs_buf;
+    size_t *else_addrs_buf;
+    size_t *if_label_buf;
+    uint64_t *global_value_buf;
+    int8_t *global_type_buf;
+    char *export_name_buf;
+    uint8_t *data_buf;
+
     uint32_t start_func_idx;
     bool start_func_present;
-    char *export_names;
-    uint32_t *export_name_offsets;
-    uint32_t *export_func_idxs;
+
+    wrp_type_t *types;
+    uint32_t num_types;
+    wrp_func_t *funcs;
+    uint32_t num_funcs;
+    wrp_global_t *globals;
+    uint32_t num_globals;
+    wrp_export_t *exports;
     uint32_t num_exports;
-    int8_t *local_types;
-    uint32_t *local_type_offsets;
-    uint32_t *local_counts;
-    uint8_t *code;
-    uint8_t **code_bodies;
-    size_t *code_bodies_sz;
-    size_t *block_addresses;
-    size_t *block_labels;
-    uint32_t *block_offsets;
-    uint32_t *block_counts;
-    size_t *if_addresses;
-    size_t *if_labels;
-    size_t *else_addresses;
-    uint32_t *if_offsets;
-    uint32_t *if_counts;
+    wrp_memory_t *memories;
+    uint32_t num_memories;
+    wrp_data_segment_t *data_segments;
+    uint32_t num_data_segments;
 } wrp_wasm_mdle_t;
 
 size_t wrp_mdle_sz(wrp_wasm_meta_t *meta);
@@ -364,4 +403,3 @@ wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
 wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
     const char *func_name,
     uint32_t *out_func_idx);
-
