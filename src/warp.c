@@ -104,7 +104,7 @@ void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
     vm->free_fn(mdle);
 }
 
-bool wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
+wrp_err_t wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
     if (vm->mdle) {
         return false;
@@ -119,41 +119,35 @@ bool wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
     // TODO run element init expressions
     // TODO run data init expressions
 
-    return true;
+    return WRP_SUCCESS;
 }
 
-bool wrp_unlink_mdle(wrp_vm_t *vm)
+wrp_err_t wrp_unlink_mdle(wrp_vm_t *vm)
 {
     if (!vm->mdle) {
-        return false;
+        return WRP_ERR_UNKNOWN;
     }
 
     vm->mdle = NULL;
-    return true;
+    return WRP_SUCCESS;
 }
 
-bool wrp_start(wrp_vm_t *vm)
+wrp_err_t wrp_start(wrp_vm_t *vm)
 {
-    return true;
+    return WRP_SUCCESS;
 }
 
-bool wrp_call(wrp_vm_t *vm, uint32_t func_idx)
+wrp_err_t wrp_call(wrp_vm_t *vm, uint32_t func_idx)
 {
     if (vm->mdle == NULL) {
-        //trap
-        return false;
+        return WRP_ERR_UNKNOWN;
     }
 
     if (func_idx >= vm->mdle->num_funcs) {
-        //trap
-        return false;
+        return WRP_ERR_INVALID_FUNC_IDX;
     }
 
-    if ((vm->err = wrp_exec(vm, func_idx)) != WRP_SUCCESS) {
-        return false;
-    }
-
-    return true;
+    return (vm->err = wrp_exec(vm, func_idx));
 }
 
 void wrp_reset_vm(wrp_vm_t *vm)

@@ -82,13 +82,13 @@ wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf);
 
 void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle);
 
-bool wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle);
+wrp_err_t wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle);
 
-bool wrp_unlink_mdle(wrp_vm_t *vm);
+wrp_err_t wrp_unlink_mdle(wrp_vm_t *vm);
 
-bool wrp_start(wrp_vm_t *vm);
+wrp_err_t wrp_start(wrp_vm_t *vm);
 
-bool wrp_call(wrp_vm_t *vm, uint32_t func_idx);
+wrp_err_t wrp_call(wrp_vm_t *vm, uint32_t func_idx);
 
 void wrp_reset_vm(wrp_vm_t *vm);
 

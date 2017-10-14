@@ -44,10 +44,16 @@ void load_mdle(wrp_vm_t *vm,
     size_t path_buf_sz,
     const char *mdle_name);
 
-uint32_t validate_mdle(wrp_vm_t *vm,
+wrp_err_t validate_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
     const char *mdle_name);
+
+wrp_err_t link_mdle(wrp_vm_t *vm,
+        const char *dir,
+        uint8_t *path_buf,
+        size_t path_buf_sz,
+        const char *mdle_name);
 
 void unload_mdle(wrp_vm_t *vm);

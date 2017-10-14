@@ -18,9 +18,23 @@
 
 #define TEST_MODULE(vm, dir, path_buf, path_buf_sz, mdle_name, result, passed, failed)        \
     {                                                                                         \
-        wrp_reset_vm(vm);                                                                     \
-                                                                                              \
         wrp_err_t err = validate_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);             \
+                                                                                              \
+        if (err == result) {                                                                  \
+            passed++;                                                                         \
+            printf("module test %s passed\n", mdle_name);                                     \
+        } else {                                                                              \
+            failed++;                                                                         \
+            const char *format = "module test %s failed. Expected: \"%s\", Actual: \"%s\"\n"; \
+            const char *result_name = wrp_debug_err(result);                                  \
+            const char *err_name = wrp_debug_err(err);                                        \
+            printf(format, mdle_name, result_name, err_name);                                 \
+        }                                                                                     \
+    }
+
+#define TEST_LINK(vm, dir, path_buf, path_buf_sz, mdle_name, result, passed, failed)          \
+    {                                                                                         \
+        wrp_err_t err = link_mdle(vm, dir, path_buf, path_buf_sz, mdle_name);                 \
                                                                                               \
         if (err == result) {                                                                  \
             passed++;                                                                         \
@@ -78,20 +92,20 @@
         success = false;                                              \
     }
 
-#define CALL(vm)                              \
-                                              \
-    if (success && !wrp_call(vm, func_idx)) { \
-        success = false;                      \
+#define CALL(vm)                                            \
+                                                            \
+    if (success && wrp_call(vm, func_idx) != WRP_SUCCESS) { \
+        success = false;                                    \
     }
 
-#define CALL_AND_TRAP(vm, expected_err)       \
-                                              \
-    if (success && wrp_call(vm, func_idx)) {  \
-        success = false;                      \
-    }                                         \
-                                              \
-    if (success && vm->err != expected_err) { \
-        success = false;                      \
+#define CALL_AND_TRAP(vm, expected_err)                     \
+                                                            \
+    if (success && wrp_call(vm, func_idx) == WRP_SUCCESS) { \
+        success = false;                                    \
+    }                                                       \
+                                                            \
+    if (success && vm->err != expected_err) {               \
+        success = false;                                    \
     }
 
 #define POP_I32(vm, result)                                           \

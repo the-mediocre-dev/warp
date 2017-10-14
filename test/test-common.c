@@ -123,12 +123,12 @@ void load_mdle(wrp_vm_t *vm,
 
     wrp_wasm_mdle_t *mdle = wrp_instantiate_mdle(vm, &buf);
     ASSERT(mdle, "failed to instantiate \"%s\"", mdle_name);
-    ASSERT(wrp_link_mdle(vm, mdle), "failed to attach module \"%s\"", mdle_name);
+    ASSERT(wrp_link_mdle(vm, mdle) == WRP_SUCCESS, "failed to attach module \"%s\"", mdle_name);
 
     free(buf.bytes);
 }
 
-uint32_t validate_mdle(wrp_vm_t *vm,
+wrp_err_t validate_mdle(wrp_vm_t *vm,
     const char *dir,
     uint8_t *path_buf,
     size_t path_buf_sz,
@@ -143,11 +143,31 @@ uint32_t validate_mdle(wrp_vm_t *vm,
 
     wrp_wasm_mdle_t *mdle = wrp_instantiate_mdle(vm, &buf);
 
-    if(mdle != NULL){
+    if (mdle != NULL) {
         wrp_destroy_mdle(vm, mdle);
     }
 
     return vm->err;
+}
+
+wrp_err_t link_mdle(wrp_vm_t *vm,
+    const char *dir,
+    uint8_t *path_buf,
+    size_t path_buf_sz,
+    const char *mdle_name)
+{
+    wrp_reset_vm(vm);
+
+    ASSERT(make_path(dir, mdle_name, path_buf, path_buf_sz), "failed to make path to \"%s\"", mdle_name);
+
+    wrp_buf_t buf = {0};
+    ASSERT(load_buf(path_buf, &buf), "failed to load \"%s\"", mdle_name);
+
+    wrp_wasm_mdle_t *mdle = wrp_instantiate_mdle(vm, &buf);
+
+    if (mdle == NULL) {
+        return vm->err;
+    }
 }
 
 void unload_mdle(wrp_vm_t *vm)
@@ -155,6 +175,6 @@ void unload_mdle(wrp_vm_t *vm)
     printf("unloading test module\n\n");
 
     wrp_wasm_mdle_t *mdle = vm->mdle;
-    ASSERT(wrp_unlink_mdle(vm), "failed to detach modle");
+    ASSERT(wrp_unlink_mdle(vm) == WRP_SUCCESS, "failed to detach modile");
     wrp_destroy_mdle(vm, mdle);
 }
