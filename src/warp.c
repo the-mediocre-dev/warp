@@ -63,7 +63,7 @@ wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf)
         return NULL;
     }
 
-    if ((vm->err = wrp_check_meta(&meta) != WRP_SUCCESS)) {
+    if ((vm->err = wrp_check_meta(&meta)) != WRP_SUCCESS) {
         return NULL;
     }
 
@@ -104,7 +104,7 @@ void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
     vm->free_fn(mdle);
 }
 
-bool wrp_attach_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
+bool wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
     if (vm->mdle) {
         return false;
@@ -122,7 +122,7 @@ bool wrp_attach_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
     return true;
 }
 
-bool wrp_detach_mdle(wrp_vm_t *vm)
+bool wrp_unlink_mdle(wrp_vm_t *vm)
 {
     if (!vm->mdle) {
         return false;
