@@ -382,18 +382,208 @@ static wrp_err_t check_set_global(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     return WRP_SUCCESS;
 }
 
-static wrp_err_t check_load(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+static wrp_err_t check_load_i32(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
-    return WRP_ERR_UNKNOWN;
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    WRP_CHECK(wrp_stk_check_push_op(vm, I32));
+
+    return WRP_SUCCESS;
 }
 
-static wrp_err_t check_store(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+static wrp_err_t check_load_i64(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
-    return WRP_ERR_UNKNOWN;
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    WRP_CHECK(wrp_stk_check_push_op(vm, I64));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_load_f32(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    WRP_CHECK(wrp_stk_check_push_op(vm, F32));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_load_f64(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    WRP_CHECK(wrp_stk_check_push_op(vm, F64));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_store_i32(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t value_type = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &value_type));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_store_i64(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t value_type = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I64, &value_type));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_store_f32(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t value_type = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, F32, &value_type));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    return WRP_SUCCESS;
+}
+
+static wrp_err_t check_store_f64(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
+{
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    if(!((flags > 0) && ((flags & (flags - 1)) == 0))){
+        return WRP_ERR_INVALID_ALIGNMENT;
+    }
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int8_t value_type = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, F64, &value_type));
+
+    int8_t address = 0;
+    WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &address));
+
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t check_current_memory(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
     int32_t reserved = 0;
     WRP_CHECK(wrp_read_vari32(&vm->opcode_stream, &reserved));
 
@@ -407,6 +597,10 @@ static wrp_err_t check_current_memory(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
 static wrp_err_t check_grow_memory(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
+    if(out_mdle->num_memories == 0){
+        return WRP_ERR_INVALID_MEM_IDX;
+    }
+
     int32_t reserved = 0;
     WRP_CHECK(wrp_read_vari32(&vm->opcode_stream, &reserved));
 
@@ -765,29 +959,29 @@ static wrp_err_t (*const check_jump_table[])(wrp_vm_t *vm, wrp_wasm_mdle_t *out_
     [OP_RES_12] = check_invalid_op,
     [OP_RES_13] = check_invalid_op,
     [OP_RES_14] = check_invalid_op,
-    [OP_I32_LOAD] = check_load,
-    [OP_I64_LOAD] = check_load,
-    [OP_F32_LOAD] = check_load,
-    [OP_F64_LOAD] = check_load,
-    [OP_I32_LOAD_8_S] = check_load,
-    [OP_I32_LOAD_8_U] = check_load,
-    [OP_I32_LOAD_16_S] = check_load,
-    [OP_I32_LOAD_16_U] = check_load,
-    [OP_I64_LOAD_8_S] = check_load,
-    [OP_I64_LOAD_8_U] = check_load,
-    [OP_I64_LOAD_16_S] = check_load,
-    [OP_I64_LOAD_16_U] = check_load,
-    [OP_I64_LOAD_32_S] = check_load,
-    [OP_I64_LOAD_32_U] = check_load,
-    [OP_I32_STORE] = check_store,
-    [OP_I64_STORE] = check_store,
-    [OP_F32_STORE] = check_store,
-    [OP_F64_STORE] = check_store,
-    [OP_I32_STORE_8] = check_store,
-    [OP_I32_STORE_16] = check_store,
-    [OP_I64_STORE_8] = check_store,
-    [OP_I64_STORE_16] = check_store,
-    [OP_I64_STORE_32] = check_store,
+    [OP_I32_LOAD] = check_load_i32,
+    [OP_I64_LOAD] = check_load_i64,
+    [OP_F32_LOAD] = check_load_f32,
+    [OP_F64_LOAD] = check_load_f64,
+    [OP_I32_LOAD_8_S] = check_load_i32,
+    [OP_I32_LOAD_8_U] = check_load_i32,
+    [OP_I32_LOAD_16_S] = check_load_i32,
+    [OP_I32_LOAD_16_U] = check_load_i32,
+    [OP_I64_LOAD_8_S] = check_load_i64,
+    [OP_I64_LOAD_8_U] = check_load_i64,
+    [OP_I64_LOAD_16_S] = check_load_i64,
+    [OP_I64_LOAD_16_U] = check_load_i64,
+    [OP_I64_LOAD_32_S] = check_load_i64,
+    [OP_I64_LOAD_32_U] = check_load_i64,
+    [OP_I32_STORE] = check_store_i32,
+    [OP_I64_STORE] = check_store_i64,
+    [OP_F32_STORE] = check_store_f32,
+    [OP_F64_STORE] = check_store_f64,
+    [OP_I32_STORE_8] = check_store_i32,
+    [OP_I32_STORE_16] = check_store_i32,
+    [OP_I64_STORE_8] = check_store_i64,
+    [OP_I64_STORE_16] = check_store_i64,
+    [OP_I64_STORE_32] = check_store_i64,
     [OP_CURRENT_MEMORY] = check_current_memory,
     [OP_GROW_MEMORY] = check_grow_memory,
     [OP_I32_CONST] = check_i32_const,

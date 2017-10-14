@@ -355,6 +355,10 @@ static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             return WRP_ERR_INVALID_MEM_IDX;
         }
 
+        if (out_mdle->data_segments[i].mem_idx >= out_mdle->num_memories) {
+            return WRP_ERR_INVALID_MEM_IDX;
+        }
+
         memcpy(&out_mdle->data_buf[data_offset], &buf->bytes[buf->pos], data_sz);
         out_mdle->data_segments[i].data = &out_mdle->data_buf[data_offset];
         out_mdle->data_segments[i].data_sz = (size_t)data_sz;
