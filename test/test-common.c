@@ -168,6 +168,39 @@ wrp_err_t link_mdle(wrp_vm_t *vm,
     if (mdle == NULL) {
         return vm->err;
     }
+
+    uint32_t num_func_imports = 0;
+    uint32_t num_table_imports = 0;
+    uint32_t num_memory_imports = 0;
+    uint32_t num_global_imports = 0;
+
+    for(uint32_t i = 0; i < mdle->num_imports; i++){
+        if(mdle->imports[i].kind == EXTERNAL_FUNC){
+            num_func_imports++;
+        }
+        if(mdle->imports[i].kind == EXTERNAL_TABLE){
+            num_table_imports++;
+        }
+        if(mdle->imports[i].kind == EXTERNAL_MEMORY){
+            num_memory_imports++;
+        }
+        if(mdle->imports[i].kind == EXTERNAL_GLOBAL){
+            num_global_imports++;
+        }
+    }
+
+    uint64_t *globals = test_alloc(sizeof(uint64_t) * num_global_imports, alignof(uint64_t));
+    uint32_t current_global = 0;
+
+    for(uint32_t i = 0; i < mdle->num_imports; i++){
+        if(mdle->imports[i].kind == EXTERNAL_GLOBAL){
+            wrp_import_global(mdle, &globals[current_global++], mdle->imports[i].idx);
+        }
+    }
+
+    wrp_err_t result = wrp_link_mdle(vm, mdle);
+    wrp_destroy_mdle(vm, mdle);
+    return result;
 }
 
 void unload_mdle(wrp_vm_t *vm)
