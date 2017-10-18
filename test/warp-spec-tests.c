@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include "block-tests.h"
+#include "const-tests.h"
 #include "f32-tests.h"
 #include "f64-tests.h"
 #include "i32-tests.h"
@@ -65,6 +66,7 @@ int main(int argc, char **argv)
     uint32_t passed = 0;
     uint32_t failed = 0;
     run_block_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_const_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_f32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_f64_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_i32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
