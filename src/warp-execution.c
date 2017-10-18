@@ -21,6 +21,7 @@
 #include "warp-buf.h"
 #include "warp-error.h"
 #include "warp-execution.h"
+#include "warp-expr.h"
 #include "warp-macros.h"
 #include "warp-stack-ops.h"
 #include "warp-wasm.h"
@@ -253,8 +254,8 @@ static wrp_err_t exec_set_local_op(wrp_vm_t *vm)
     int8_t local_type = 0;
     WRP_CHECK(wrp_stk_exec_pop_op(vm, &local_value, &local_type));
 
+    //safe to assume types match as code has been type checked
     vm->oprd_stk[local_stk_ptr].value = local_value;
-    vm->oprd_stk[local_stk_ptr].type = local_type;
     return WRP_SUCCESS;
 }
 
@@ -2657,7 +2658,7 @@ static wrp_err_t (*const exec_jump_table[])(wrp_vm_t *vm) = {
     //clang-format brace hack
 };
 
-wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx)
+wrp_err_t wrp_exec_func(wrp_vm_t *vm, uint32_t func_idx)
 {
     WRP_CHECK(wrp_stk_exec_push_call(vm, func_idx));
 
@@ -2670,7 +2671,8 @@ wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx)
             return WRP_ERR_INSTRUCTION_OVERFLOW;
         }
 
-        uint8_t opcode = vm->opcode_stream.bytes[vm->opcode_stream.pos++];
+        uint8_t opcode = 0;
+        WRP_CHECK(wrp_read_uint8(&vm->opcode_stream, &opcode));
 
         if (opcode >= NUM_OPCODES) {
             return WRP_ERR_INVALID_OPCODE;
@@ -2682,5 +2684,34 @@ wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx)
         }
     }
 
+    return WRP_SUCCESS;
+}
+
+wrp_err_t wrp_exec_init_expr(wrp_vm_t *vm,
+    wrp_init_expr_t *expr,
+    uint64_t *out_value)
+{
+    vm->opcode_stream.bytes = expr->code;
+    vm->opcode_stream.sz = expr->sz;
+    vm->opcode_stream.pos = 0;
+
+    WRP_CHECK(wrp_stk_exec_push_block(vm, 0, BLOCK_EXPR, expr->value_type));
+
+    while (vm->ctrl_stk_head >= 0) {
+        uint8_t opcode = 0;
+        WRP_CHECK(wrp_read_uint8(&vm->opcode_stream, &opcode));
+
+        if (!wrp_is_valid_init_expr_opcode(opcode)) {
+            return WRP_ERR_INVALID_INITIALZER_EXPRESSION;
+        }
+
+        WRP_CHECK(exec_jump_table[opcode](vm));
+    }
+
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+
+    *out_value = value;
     return WRP_SUCCESS;
 }

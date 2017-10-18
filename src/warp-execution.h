@@ -20,4 +20,8 @@
 
 #include "warp-types.h"
 
-wrp_err_t wrp_exec(wrp_vm_t *vm, uint32_t func_idx);
+wrp_err_t wrp_exec_func(wrp_vm_t *vm, uint32_t func_idx);
+
+wrp_err_t wrp_exec_init_expr(wrp_vm_t *vm,
+    wrp_init_expr_t *expr,
+    uint64_t *out_value);
