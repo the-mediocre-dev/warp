@@ -15,6 +15,7 @@
  */
 
 #include "warp-stack-ops.h"
+#include "warp-encode.h"
 #include "warp-error.h"
 #include "warp-macros.h"
 #include "warp-wasm.h"
@@ -73,42 +74,22 @@ wrp_err_t wrp_stk_exec_pop_op(wrp_vm_t *vm, uint64_t *value, int8_t *type)
 
 wrp_err_t wrp_stk_exec_push_i32(wrp_vm_t *vm, int32_t value)
 {
-    uint64_t operand = 0;
-    for (uint32_t i = 0; i < sizeof(int32_t); i++) {
-        ((uint8_t *)(&operand))[i] = ((uint8_t *)&value)[i];
-    }
-
-    return wrp_stk_exec_push_op(vm, operand, I32);
+    return wrp_stk_exec_push_op(vm, wrp_encode_i32(value), I32);
 }
 
 wrp_err_t wrp_stk_exec_push_i64(wrp_vm_t *vm, int64_t value)
 {
-    uint64_t operand = 0;
-    for (uint32_t i = 0; i < sizeof(int64_t); i++) {
-        ((uint8_t *)(&operand))[i] = ((uint8_t *)&value)[i];
-    }
-
-    return wrp_stk_exec_push_op(vm, operand, I64);
+    return wrp_stk_exec_push_op(vm, wrp_encode_i64(value), I64);
 }
 
 wrp_err_t wrp_stk_exec_push_f32(wrp_vm_t *vm, float value)
 {
-    uint64_t operand = 0;
-    for (uint32_t i = 0; i < sizeof(float); i++) {
-        ((uint8_t *)(&operand))[i] = ((uint8_t *)&value)[i];
-    }
-
-    return wrp_stk_exec_push_op(vm, operand, F32);
+    return wrp_stk_exec_push_op(vm, wrp_encode_f32(value), F32);
 }
 
 wrp_err_t wrp_stk_exec_push_f64(wrp_vm_t *vm, double value)
 {
-    uint64_t operand = 0;
-    for (uint32_t i = 0; i < sizeof(double); i++) {
-        ((uint8_t *)(&operand))[i] = ((uint8_t *)&value)[i];
-    }
-
-    return wrp_stk_exec_push_op(vm, operand, F64);
+    return wrp_stk_exec_push_op(vm, wrp_encode_f64(value), F64);
 }
 
 wrp_err_t wrp_stk_exec_pop_i32(wrp_vm_t *vm, int32_t *value)
@@ -121,10 +102,7 @@ wrp_err_t wrp_stk_exec_pop_i32(wrp_vm_t *vm, int32_t *value)
         return WRP_ERR_TYPE_MISMATCH;
     }
 
-    for (uint32_t i = 0; i < sizeof(int32_t); i++) {
-        ((uint8_t *)value)[i] = ((uint8_t *)(&operand))[i];
-    }
-
+    *value = wrp_decode_i32(operand);
     return WRP_SUCCESS;
 }
 
@@ -138,10 +116,7 @@ wrp_err_t wrp_stk_exec_pop_i64(wrp_vm_t *vm, int64_t *value)
         return WRP_ERR_TYPE_MISMATCH;
     }
 
-    for (uint32_t i = 0; i < sizeof(int64_t); i++) {
-        ((uint8_t *)value)[i] = ((uint8_t *)(&operand))[i];
-    }
-
+    *value = wrp_decode_i64(operand);
     return WRP_SUCCESS;
 }
 
@@ -155,10 +130,7 @@ wrp_err_t wrp_stk_exec_pop_f32(wrp_vm_t *vm, float *value)
         return WRP_ERR_TYPE_MISMATCH;
     }
 
-    for (uint32_t i = 0; i < sizeof(float); i++) {
-        ((uint8_t *)value)[i] = ((uint8_t *)(&operand))[i];
-    }
-
+    *value = wrp_decode_f32(operand);
     return WRP_SUCCESS;
 }
 
@@ -172,10 +144,7 @@ wrp_err_t wrp_stk_exec_pop_f64(wrp_vm_t *vm, double *value)
         return WRP_ERR_TYPE_MISMATCH;
     }
 
-    for (uint32_t i = 0; i < sizeof(double); i++) {
-        ((uint8_t *)value)[i] = ((uint8_t *)(&operand))[i];
-    }
-
+    *value = wrp_decode_f64(operand);
     return WRP_SUCCESS;
 }
 
