@@ -222,9 +222,5 @@ wrp_err_t wrp_read_limits(wrp_buf_t *buf, uint32_t *out_min, uint32_t *out_max)
         WRP_CHECK(wrp_read_varui32(buf, out_max));
     }
 
-    if (*out_min > *out_max) {
-        return WRP_ERR_INVALID_LIMIT;
-    }
-
     return WRP_SUCCESS;
 }
