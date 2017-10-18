@@ -101,7 +101,7 @@ static wrp_err_t check_else(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
     func->else_addrs[if_idx] = else_address;
 
     //validate the if portion of the if / else
-    WRP_CHECK(wrp_stk_check_block_sig(vm, 0, false));
+    WRP_CHECK(wrp_stk_check_block_sig(vm, 0, false, false));
 
     //reset for the else block
     vm->oprd_stk_head = vm->ctrl_stk[vm->ctrl_stk_head].oprd_stk_ptr;
@@ -150,7 +150,7 @@ static wrp_err_t check_br(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
     uint32_t depth = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &depth));
-    WRP_CHECK(wrp_stk_check_block_sig(vm, depth, true));
+    WRP_CHECK(wrp_stk_check_block_sig(vm, depth, true, false));
     WRP_CHECK(wrp_stk_check_unreachable(vm));
     return WRP_SUCCESS;
 }
@@ -162,6 +162,8 @@ static wrp_err_t check_br_if(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
     int8_t condition_type = 0;
     WRP_CHECK(wrp_stk_check_pop_op(vm, I32, &condition_type));
+
+    WRP_CHECK(wrp_stk_check_block_sig(vm, depth, true, true));
 
     return WRP_SUCCESS;
 }
@@ -202,7 +204,7 @@ static wrp_err_t check_br_table(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
         }
     }
 
-    WRP_CHECK(wrp_stk_check_block_sig(vm, default_target, true));
+    WRP_CHECK(wrp_stk_check_block_sig(vm, default_target, true, false));
     WRP_CHECK(wrp_stk_check_unreachable(vm));
     return WRP_SUCCESS;
 }

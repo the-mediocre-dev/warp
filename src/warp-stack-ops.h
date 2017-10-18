@@ -70,7 +70,10 @@ wrp_err_t wrp_stk_check_push_block(wrp_vm_t *vm,
 
 wrp_err_t wrp_stk_check_pop_block(wrp_vm_t *vm);
 
-wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch);
+wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm,
+    uint32_t depth,
+    bool branch,
+    bool push_results);
 
 wrp_err_t wrp_stk_check_unreachable(wrp_vm_t *vm);
 

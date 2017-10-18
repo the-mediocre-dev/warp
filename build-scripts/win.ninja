@@ -55,6 +55,15 @@ build $builddir/test/warp-spec-tests.o: $
 build $builddir/test/block-tests.o: $
   compile ./test/block-tests.c
 
+build $builddir/test/br_if-tests.o: $
+  compile ./test/br_if-tests.c
+
+build $builddir/test/br_table-tests.o: $
+  compile ./test/br_table-tests.c
+
+build $builddir/test/call-tests.o: $
+  compile ./test/call-tests.c
+
 build $builddir/test/const-tests.o: $
   compile ./test/const-tests.c
 
@@ -99,6 +108,9 @@ build $target : link $builddir/src/warp-buf.o $
                      $builddir/test/test-common.o $
                      $builddir/test/warp-spec-tests.o $
                      $builddir/test/block-tests.o $
+                     $builddir/test/br_if-tests.o $
+                     $builddir/test/br_table-tests.o $
+                     $builddir/test/call-tests.o $
                      $builddir/test/const-tests.o $
                      $builddir/test/f32-tests.o $
                      $builddir/test/f64-tests.o $

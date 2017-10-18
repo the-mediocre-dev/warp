@@ -390,11 +390,11 @@ wrp_err_t wrp_stk_check_pop_op(wrp_vm_t *vm, int8_t expected_type, int8_t *type)
     }
 
     if (!vm->ctrl_stk[block_idx].unreachable && vm->oprd_stk_head == -1) {
-        return WRP_ERR_OP_STK_UNDERFLOW;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     if (!vm->ctrl_stk[block_idx].unreachable && vm->oprd_stk_head <= vm->ctrl_stk[block_idx].oprd_stk_ptr) {
-        return WRP_ERR_CONTROL_FRAME_OP_UNDERFLOW;
+        return WRP_ERR_TYPE_MISMATCH;
     }
 
     uint8_t actual_type = 0;
@@ -476,11 +476,14 @@ wrp_err_t wrp_stk_check_pop_block(wrp_vm_t *vm)
     return WRP_SUCCESS;
 }
 
-wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch)
+wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm,
+    uint32_t depth,
+    bool branch,
+    bool push_results)
 {
     int32_t block_idx = vm->ctrl_stk_head - depth;
 
-    if (block_idx == -1) {
+    if (block_idx <= -1) {
         return WRP_ERR_INVALID_BLOCK_IDX;
     }
 
@@ -505,8 +508,13 @@ wrp_err_t wrp_stk_check_block_sig(wrp_vm_t *vm, uint32_t depth, bool branch)
     int8_t result_type = 0;
 
     //pop the results
-    if (vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
-        WRP_CHECK(wrp_stk_check_pop_op(vm, vm->ctrl_stk[vm->ctrl_stk_head].signature, &result_type));
+    if (vm->ctrl_stk[block_idx].signature != VOID) {
+        WRP_CHECK(wrp_stk_check_pop_op(vm, vm->ctrl_stk[block_idx].signature, &result_type));
+    }
+
+    //push the results back onto the stack
+    if(push_results && vm->ctrl_stk[block_idx].signature != VOID){
+        WRP_CHECK(wrp_stk_check_push_op(vm, vm->ctrl_stk[block_idx].signature));
     }
 
     return WRP_SUCCESS;
