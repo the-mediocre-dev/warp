@@ -18,7 +18,7 @@
 #include "warp-buf.h"
 #include "warp-config.h"
 #include "warp-error.h"
-#include "warp-initializer-expression.h"
+#include "warp-expr.h"
 #include "warp-macros.h"
 #include "warp-wasm.h"
 
@@ -189,6 +189,8 @@ static wrp_err_t scan_global_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
         uint8_t mutability = 0;
         WRP_CHECK(wrp_read_varui1(buf, &mutability));
+
+        //TODO skip init expr
     }
 
     return WRP_SUCCESS;
@@ -230,64 +232,6 @@ static wrp_err_t scan_element_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
     return WRP_SUCCESS;
 }
 
-static wrp_err_t skip_immediates(wrp_buf_t *buf, uint8_t opcode)
-{
-    if (opcode >= OP_BLOCK && opcode <= OP_IF) {
-        int8_t block_type = 0;
-        WRP_CHECK(wrp_read_vari7(buf, &block_type));
-    } else if (opcode >= OP_BR && opcode <= OP_BR_IF) {
-        uint32_t depth = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &depth));
-    } else if (opcode == OP_BR_TABLE) {
-        uint32_t target_count = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &target_count));
-
-        for (uint32_t i = 0; i < target_count; i++) {
-            uint32_t target = 0;
-            WRP_CHECK(wrp_read_varui32(buf, &target));
-        }
-
-        uint32_t default_target = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &default_target));
-    } else if (opcode == OP_CALL) {
-        uint32_t func_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &func_idx));
-    } else if (opcode == OP_CALL_INDIRECT) {
-        uint32_t type_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &type_idx));
-        int8_t indirect_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, &indirect_reserved));
-    } else if (opcode >= OP_GET_LOCAL && opcode <= OP_SET_LOCAL) {
-        uint32_t local_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &local_idx));
-    } else if (opcode >= OP_GET_GLOBAL && opcode <= OP_SET_GLOBAL) {
-        uint32_t global_idx = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &global_idx));
-    } else if (opcode >= OP_I32_LOAD && opcode <= OP_I64_STORE_32) {
-        uint32_t memory_immediate_flags = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &memory_immediate_flags));
-        uint32_t memory_immediate_offset = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &memory_immediate_offset));
-    } else if (opcode >= OP_CURRENT_MEMORY && opcode <= OP_GROW_MEMORY) {
-        int8_t memory_reserved = 0;
-        WRP_CHECK(wrp_read_vari7(buf, &memory_reserved));
-    } else if (opcode == OP_I32_CONST) {
-        int32_t i32_const = 0;
-        WRP_CHECK(wrp_read_vari32(buf, &i32_const));
-    } else if (opcode == OP_I64_CONST) {
-        int64_t i64_const = 0;
-        WRP_CHECK(wrp_read_vari64(buf, &i64_const));
-    } else if (opcode == OP_F32_CONST) {
-        float f32_const = 0;
-        WRP_CHECK(wrp_read_f32(buf, &f32_const));
-    } else if (opcode == OP_F64_CONST) {
-        double f64_const = 0;
-        WRP_CHECK(wrp_read_f64(buf, &f64_const));
-    }
-
-    return WRP_SUCCESS;
-}
-
 static wrp_err_t scan_code_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
     uint32_t count;
@@ -325,8 +269,8 @@ static wrp_err_t scan_code_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
         while (buf->pos <= end_pos) {
             uint8_t opcode = 0;
-            WRP_CHECK(wrp_read_uint8(buf, &opcode));
-            WRP_CHECK(skip_immediates(buf, opcode));
+            size_t expr_sz = 0;
+            WRP_CHECK(wrp_skip_expr(buf, &opcode, &expr_sz));
 
             if (opcode == OP_IF) {
                 out_meta->num_if_ops++;
@@ -350,17 +294,16 @@ static wrp_err_t scan_data_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
     for (uint32_t i = 0; i < count; i++) {
         uint32_t mem_idx = 0;
-        uint8_t *init_expr = NULL;
-        uint32_t init_expr_sz = 0;
-        uint32_t size = 0;
+        size_t init_expr_sz = 0;
+        uint32_t data_sz = 0;
         WRP_CHECK(wrp_read_varui32(buf, &mem_idx));
-        WRP_CHECK(wrp_read_init_expr(buf, init_expr, &init_expr_sz));
-        WRP_CHECK(wrp_read_varui32(buf, &size));
+        WRP_CHECK(wrp_skip_init_expr(buf, &init_expr_sz));
+        WRP_CHECK(wrp_read_varui32(buf, &data_sz));
 
-        out_meta->data_init_expr_buf_sz += init_expr_sz;
-        out_meta->data_buf_sz += size;
+        out_meta->data_expr_buf_sz += init_expr_sz;
+        out_meta->data_buf_sz += data_sz;
 
-        WRP_CHECK(wrp_skip(buf, size));
+        WRP_CHECK(wrp_skip(buf, data_sz));
     }
 
     return WRP_SUCCESS;
