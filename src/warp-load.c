@@ -18,7 +18,7 @@
 
 #include "warp-buf.h"
 #include "warp-error.h"
-#include "warp-initializer-expression.h"
+#include "warp-expr.h"
 #include "warp-load.h"
 #include "warp-macros.h"
 #include "warp-type-check.h"
@@ -58,21 +58,23 @@ static wrp_err_t load_type_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     uint32_t current_result = 0;
 
     for (uint32_t i = 0; i < count; i++) {
-        WRP_CHECK(wrp_read_varui7(buf, &out_mdle->types[i].form));
+        wrp_type_t *type = &out_mdle->types[i];
 
-        if (out_mdle->types[i].form != TYPE_FUNCTION) {
+        WRP_CHECK(wrp_read_varui7(buf, &type->form));
+
+        if (type->form != TYPE_FUNCTION) {
             return WRP_ERR_MDLE_INVALID_FORM;
         }
 
-        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->types[i].num_params));
+        WRP_CHECK(wrp_read_varui32(buf, &type->num_params));
 
-        if (out_mdle->types[i].num_params > MAX_FUNC_PARAMETERS) {
+        if (type->num_params > MAX_FUNC_PARAMETERS) {
             return WRP_ERR_MDLE_FUNC_PARAMETER_OVERFLOW;
         }
 
-        out_mdle->types[i].param_types = &out_mdle->param_type_buf[current_param];
+        type->param_types = &out_mdle->param_type_buf[current_param];
 
-        for (uint32_t j = 0; j < out_mdle->types[i].num_params; j++) {
+        for (uint32_t j = 0; j < type->num_params; j++) {
             WRP_CHECK(wrp_read_vari7(buf, &out_mdle->param_type_buf[current_param]));
 
             if (!wrp_is_valid_value_type(out_mdle->param_type_buf[current_param])) {
@@ -82,15 +84,15 @@ static wrp_err_t load_type_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             current_param++;
         }
 
-        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->types[i].num_results));
+        WRP_CHECK(wrp_read_varui32(buf, &type->num_results));
 
-        if (out_mdle->types[i].num_results > MAX_FUNC_RESULTS) {
+        if (type->num_results > MAX_FUNC_RESULTS) {
             return WRP_ERR_MDLE_FUNC_RETURN_OVERFLOW;
         }
 
-        out_mdle->types[i].result_types = &out_mdle->result_type_buf[current_result];
+        type->result_types = &out_mdle->result_type_buf[current_result];
 
-        for (uint32_t j = 0; j < out_mdle->types[i].num_results; j++) {
+        for (uint32_t j = 0; j < type->num_results; j++) {
             WRP_CHECK(wrp_read_vari7(buf, &out_mdle->result_type_buf[current_result]));
 
             if (!wrp_is_valid_value_type(out_mdle->result_type_buf[current_result])) {
@@ -114,27 +116,28 @@ static wrp_err_t load_import_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     uint32_t current_field_char = 0;
 
     for (uint32_t i = 0; i < count; i++) {
-        out_mdle->imports[i].name = &out_mdle->import_name_buf[current_name_char];
-        out_mdle->imports[i].name = &out_mdle->import_field_buf[current_field_char];
+        wrp_import_t *import = &out_mdle->imports[i];
+        import->name = &out_mdle->import_name_buf[current_name_char];
+        import->field = &out_mdle->import_field_buf[current_field_char];
 
         //TODO remove magic number
         uint32_t name_len = 0;
         uint32_t field_len = 0;
-        WRP_CHECK(wrp_read_string(buf, out_mdle->imports[i].name, 1024, &name_len));
-        WRP_CHECK(wrp_read_string(buf, out_mdle->imports[i].name, 1024, &field_len));
-        WRP_CHECK(wrp_read_uint8(buf, &out_mdle->imports[i].kind));
+        WRP_CHECK(wrp_read_string(buf, import->name, 1024, &name_len));
+        WRP_CHECK(wrp_read_string(buf, import->name, 1024, &field_len));
+        WRP_CHECK(wrp_read_uint8(buf, &import->kind));
 
         current_name_char += current_name_char + 1;
         current_field_char += field_len + 1;
 
-        if (out_mdle->imports[i].kind == EXTERNAL_FUNC) {
+        if (import->kind == EXTERNAL_FUNC) {
             return WRP_ERR_INVALID_IMPORT;
-        } else if (out_mdle->imports[i].kind == EXTERNAL_TABLE) {
+        } else if (import->kind == EXTERNAL_TABLE) {
             return WRP_ERR_INVALID_IMPORT;
-        } else if (out_mdle->imports[i].kind == EXTERNAL_MEMORY) {
+        } else if (import->kind == EXTERNAL_MEMORY) {
             return WRP_ERR_INVALID_IMPORT;
-        } else if (out_mdle->imports[i].kind == EXTERNAL_GLOBAL) {
-            out_mdle->imports[out_mdle->num_globals].idx = out_mdle->num_globals;
+        } else if (import->kind == EXTERNAL_GLOBAL) {
+            import->idx = out_mdle->num_globals;
             WRP_CHECK(wrp_read_vari7(buf, &out_mdle->globals[out_mdle->num_globals].type));
             WRP_CHECK(wrp_read_varui1(buf, &out_mdle->globals[out_mdle->num_globals].mutability));
             out_mdle->num_globals++;
@@ -155,9 +158,11 @@ static wrp_err_t load_func_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     WRP_CHECK(wrp_read_varui32(buf, &count));
 
     for (uint32_t i = out_mdle->num_funcs; i < out_mdle->num_funcs + count; i++) {
-        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->funcs[i].type_idx));
+        wrp_func_t *func = &out_mdle->funcs[i];
 
-        if (out_mdle->funcs[i].type_idx >= out_mdle->num_types) {
+        WRP_CHECK(wrp_read_varui32(buf, &func->type_idx));
+
+        if (func->type_idx >= out_mdle->num_types) {
             return WRP_ERR_INVALID_TYPE_IDX;
         }
     }
@@ -180,20 +185,26 @@ static wrp_err_t load_memory_section(wrp_vm_t *vm,
     WRP_CHECK(wrp_read_varui32(buf, &count));
 
     for (uint32_t i = out_mdle->num_memories; i < out_mdle->num_memories + count; i++) {
+        wrp_memory_t *memory = &out_mdle->memories[i];
+
         uint32_t min_pages = 0;
         uint32_t max_pages = MAX_MEMORY_PAGES;
         WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
 
-        if (min_pages > 0) {
-            out_mdle->memories[i].bytes = vm->alloc_fn(min_pages * PAGE_SIZE, 64);
+        if(min_pages > max_pages || max_pages > MAX_MEMORY_PAGES){
+            return WRP_ERR_INVALID_MEM_LIMIT;
+        }
 
-            if (out_mdle->memories[i].bytes == NULL) {
+        if (min_pages > 0) {
+            memory->bytes = vm->alloc_fn(min_pages * PAGE_SIZE, 64);
+
+            if (memory->bytes == NULL) {
                 return WRP_ERR_MEMORY_ALLOCATION_FAILED;
             }
         }
 
-        out_mdle->memories[i].num_pages = min_pages;
-        out_mdle->memories[i].max_pages = max_pages;
+        memory->num_pages = min_pages;
+        memory->max_pages = max_pages;
     }
 
     out_mdle->num_memories += count;
@@ -207,19 +218,20 @@ static wrp_err_t load_global_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     WRP_CHECK(wrp_read_varui32(buf, &count));
 
     for (uint32_t i = out_mdle->num_globals; i < out_mdle->num_globals + count; i++) {
+        wrp_global_t *global = &out_mdle->globals[i];
+        global->value = &out_mdle->global_buf[i];
+        *global->value = 0;
+        WRP_CHECK(wrp_read_vari7(buf, &global->type));
+        WRP_CHECK(wrp_read_varui1(buf, &global->mutability));
 
-        out_mdle->globals[i].value = &out_mdle->global_buf[i];
+        //TODO skip init expr
 
-        out_mdle->globals[i].value = 0;
-        WRP_CHECK(wrp_read_vari7(buf, &out_mdle->globals[i].type));
-        WRP_CHECK(wrp_read_varui1(buf, &out_mdle->globals[i].mutability));
-
-        if (!wrp_is_valid_value_type(out_mdle->globals[i].type)) {
+        if (!wrp_is_valid_value_type(global->type)) {
             return WRP_ERR_INVALID_TYPE;
         }
 
         //WASM v1 forbids mutable globals
-        if (out_mdle->globals[i].mutability != GLOBAL_IMMUTABLE) {
+        if (global->mutability != GLOBAL_IMMUTABLE) {
             return WRP_ERR_INVALID_MUTIBILITY;
         }
     }
@@ -238,23 +250,24 @@ static wrp_err_t load_export_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     uint32_t current_char = 0;
 
     for (uint32_t i = 0; i < count; i++) {
-        out_mdle->exports[i].name = &out_mdle->export_name_buf[current_char];
+        wrp_export_t *export = &out_mdle->exports[i];
+        export->name = &out_mdle->export_name_buf[current_char];
 
         //TODO remove magic number
         uint32_t name_len = 0;
-        WRP_CHECK(wrp_read_string(buf, out_mdle->exports[i].name, 1024, &name_len));
-        WRP_CHECK(wrp_read_varui7(buf, &out_mdle->exports[i].kind));
-        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->exports[i].idx));
+        WRP_CHECK(wrp_read_string(buf, export->name, 1024, &name_len));
+        WRP_CHECK(wrp_read_varui7(buf, &export->kind));
+        WRP_CHECK(wrp_read_varui32(buf, &export->idx));
 
         current_char += name_len + 1;
 
-        if (out_mdle->exports[i].kind == EXTERNAL_FUNC && out_mdle->exports[i].idx >= out_mdle->num_funcs) {
+        if (export->kind == EXTERNAL_FUNC && export->idx >= out_mdle->num_funcs) {
             return WRP_ERR_INVALID_FUNC_IDX;
-        } else if (out_mdle->exports[i].kind == EXTERNAL_TABLE) {
+        } else if (export->kind == EXTERNAL_TABLE) {
             return WRP_ERR_INVALID_EXPORT;
-        } else if (out_mdle->exports[i].kind == EXTERNAL_MEMORY) {
+        } else if (export->kind == EXTERNAL_MEMORY) {
             return WRP_ERR_INVALID_EXPORT;
-        } else if (out_mdle->exports[i].kind == EXTERNAL_GLOBAL) {
+        } else if (export->kind == EXTERNAL_GLOBAL) {
             return WRP_ERR_INVALID_EXPORT;
         }
     }
@@ -279,24 +292,25 @@ static wrp_err_t load_code_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     uint32_t count = 0;
     WRP_CHECK(wrp_read_varui32(buf, &count));
 
-    if (count != out_mdle->num_funcs) {
+    uint32_t num_func_imports = 0;
+    for (uint32_t i = 0; i < out_mdle->num_imports; i++) {
+        if (out_mdle->imports[i].kind == EXTERNAL_FUNC) {
+            num_func_imports++;
+        }
+    }
+
+    if (count != out_mdle->num_funcs - num_func_imports) {
         return WRP_ERR_MDLE_CODE_MISMATCH;
     }
 
     uint32_t current_local = 0;
     size_t code_offset = 0;
-    uint32_t func_offset = 0;
-
-    for(uint32_t i = 0; i < out_mdle->num_imports; i++){
-        if(out_mdle->imports[i].kind == EXTERNAL_FUNC){
-            func_offset++;
-        }
-    }
-
-    for (uint32_t i = 0; i < out_mdle->num_funcs; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         size_t code_segment_pos = buf->pos;
 
-        out_mdle->funcs[func_offset + i].local_types = &out_mdle->local_type_buf[current_local];
+        wrp_func_t *func = &out_mdle->funcs[num_func_imports + i];
+        func->local_types = &out_mdle->local_type_buf[current_local];
+        func->num_locals = 0;
 
         uint32_t body_sz = 0;
         WRP_CHECK(wrp_read_varui32(buf, &body_sz));
@@ -316,20 +330,21 @@ static wrp_err_t load_code_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             }
 
             for (uint32_t k = 0; k < num_locals; k++) {
-                out_mdle->funcs[func_offset + i].local_types[current_local++] = value_type;
+                func->local_types[func->num_locals] = value_type;
+                func->num_locals++;
             }
-
-            out_mdle->funcs[func_offset + i].num_locals += num_locals;
         }
 
         size_t code_sz = body_sz - (buf->pos - code_segment_pos) + 1;
 
         memcpy(&out_mdle->code_buf[code_offset], &buf->bytes[buf->pos], code_sz);
-        out_mdle->funcs[func_offset + i].code = &out_mdle->code_buf[code_offset];
-        out_mdle->funcs[func_offset + i].code_sz = code_sz;
+        func->code = &out_mdle->code_buf[code_offset];
+        func->code_sz = code_sz;
 
         WRP_CHECK(wrp_skip(buf, code_sz));
         code_offset += code_sz;
+
+        current_local += func->num_locals;
     }
 
     return WRP_SUCCESS;
@@ -339,33 +354,39 @@ static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
     WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_data_segments));
 
+    size_t expr_offset = 0;
     size_t data_offset = 0;
-    size_t init_expr_offset = 0;
     for (uint32_t i = 0; i < out_mdle->num_data_segments; i++) {
-        out_mdle->data_segments[i].init_expr = &out_mdle->data_init_expr_buf[init_expr_offset];
+        wrp_data_segment_t *segment = &out_mdle->data_segments[i];
+        segment->offset_expr.code = &out_mdle->data_expr_buf[expr_offset];
+        segment->data = &out_mdle->data_buf[data_offset];
+
+        WRP_CHECK(wrp_read_varui32(buf, &segment->mem_idx));
+
+        size_t expr_pos = buf->pos;
+        size_t expr_sz = 0;
+        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
 
         uint32_t data_sz = 0;
-        uint32_t init_expr_sz = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &out_mdle->data_segments[i].mem_idx));
-        WRP_CHECK(wrp_read_init_expr(buf, out_mdle->data_segments[i].init_expr, &init_expr_sz));
         WRP_CHECK(wrp_read_varui32(buf, &data_sz));
 
         //MVP only allows one memory
-        if (out_mdle->data_segments[i].mem_idx != 0) {
+        if (segment->mem_idx != 0) {
             return WRP_ERR_INVALID_MEM_IDX;
         }
 
-        if (out_mdle->data_segments[i].mem_idx >= out_mdle->num_memories) {
+        if (segment->mem_idx >= out_mdle->num_memories) {
             return WRP_ERR_INVALID_MEM_IDX;
         }
 
-        memcpy(&out_mdle->data_buf[data_offset], &buf->bytes[buf->pos], data_sz);
-        out_mdle->data_segments[i].data = &out_mdle->data_buf[data_offset];
-        out_mdle->data_segments[i].data_sz = (size_t)data_sz;
-
+        memcpy(segment->offset_expr.code, &buf->bytes[expr_pos], expr_sz);
+        memcpy(segment->data, &buf->bytes[buf->pos], data_sz);
+        segment->sz = (size_t)data_sz;
+        segment->offset_expr.sz = expr_sz;
+        segment->offset_expr.value_type = I32;
         WRP_CHECK(wrp_skip(buf, data_sz));
 
-        init_expr_offset += init_expr_sz;
+        expr_offset += expr_sz;
         data_offset += data_sz;
     }
 
@@ -407,8 +428,7 @@ wrp_err_t wrp_load_mdle(wrp_vm_t *vm,
             break;
 
         case SECTION_IMPORT:
-            //WRP_CHECK(load_import_section(buf, out_mdle));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(load_import_section(buf, out_mdle));
             break;
 
         case SECTION_FUNC:
