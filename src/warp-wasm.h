@@ -66,6 +66,7 @@
 #define BLOCK_FUNC              0x01
 #define BLOCK_IF                0x02
 #define BLOCK_LOOP              0x03
+#define BLOCK_EXPR              0x04
 
 // op codes
 #define OP_UNREACHABLE          0x00
@@ -281,9 +282,15 @@ typedef struct wrp_wasm_meta {
     uint32_t num_block_ops;
     uint32_t num_if_ops;
     uint32_t num_data_segments;
-    size_t data_init_expr_buf_sz;
     size_t data_buf_sz;
+    size_t data_expr_buf_sz;
 } wrp_wasm_meta_t;
+
+typedef struct wrp_init_expr{
+    uint8_t *code;
+    uint8_t sz;
+    int8_t value_type;
+} wrp_init_expr_t;
 
 typedef struct wrp_type {
     uint8_t form;
@@ -328,10 +335,9 @@ typedef struct wrp_memory {
 
 typedef struct wrp_data_segment{
     uint8_t *data;
-    size_t data_sz;
+    size_t sz;
     uint32_t mem_idx;
-    uint8_t *init_expr;
-    int32_t offset;
+    wrp_init_expr_t offset_expr;
 } wrp_data_segment_t;
 
 typedef struct wrp_import {
@@ -361,8 +367,8 @@ typedef struct wrp_wasm_mdle {
     char *import_name_buf;
     char *import_field_buf;
     char *export_name_buf;
-    uint8_t *data_init_expr_buf;
     uint8_t *data_buf;
+    uint8_t *data_expr_buf;
     uint32_t start_func_idx;
     bool start_func_present;
     wrp_type_t *types;
@@ -371,7 +377,7 @@ typedef struct wrp_wasm_mdle {
     uint32_t num_funcs;
     wrp_global_t *globals;
     uint32_t num_globals;
-    wrp_table_t tables;
+    wrp_table_t *tables;
     uint32_t num_tables;
     wrp_memory_t *memories;
     uint32_t num_memories;
@@ -405,6 +411,10 @@ wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     size_t if_address,
     uint32_t *out_if_idx);
 
-wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
-    const char *func_name,
-    uint32_t *out_func_idx);
+wrp_err_t wrp_export_func(wrp_wasm_mdle_t *mdle,
+        const char *func_name,
+        uint32_t *out_func_idx);
+
+wrp_err_t wrp_import_global(wrp_wasm_mdle_t *mdle,
+    uint64_t *global,
+    uint32_t global_idx);

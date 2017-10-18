@@ -39,8 +39,8 @@ size_t wrp_mdle_sz(wrp_wasm_meta_t *meta)
     mdle_sz += ALIGN_64(meta->import_name_buf_sz * sizeof(char));
     mdle_sz += ALIGN_64(meta->import_field_buf_sz * sizeof(char));
     mdle_sz += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
-    mdle_sz += ALIGN_64(meta->data_init_expr_buf_sz * sizeof(uint8_t));
     mdle_sz += ALIGN_64(meta->data_buf_sz * sizeof(uint8_t));
+    mdle_sz += ALIGN_64(meta->data_expr_buf_sz * sizeof(uint8_t));
     mdle_sz += ALIGN_64(meta->num_types * sizeof(wrp_type_t));
     mdle_sz += ALIGN_64(meta->num_funcs * sizeof(wrp_func_t));
     mdle_sz += ALIGN_64(meta->num_globals * sizeof(wrp_global_t));
@@ -95,11 +95,11 @@ void wrp_mdle_init(wrp_wasm_meta_t *meta, wrp_wasm_mdle_t *out_mdle)
     out_mdle->export_name_buf = (char *)(ptr + offset);
     offset += ALIGN_64(meta->export_name_buf_sz * sizeof(char));
 
-    out_mdle->data_init_expr_buf = (uint8_t *)(ptr + offset);
-    offset += ALIGN_64(meta->data_init_expr_buf_sz * sizeof(uint8_t));
-
     out_mdle->data_buf = (uint8_t *)(ptr + offset);
     offset += ALIGN_64(meta->data_buf_sz * sizeof(uint8_t));
+
+    out_mdle->data_expr_buf = (uint8_t *)(ptr + offset);
+    offset += ALIGN_64(meta->data_expr_buf_sz * sizeof(uint8_t));
 
     out_mdle->types = (wrp_type_t *)(ptr + offset);
     offset += ALIGN_64(meta->num_types * sizeof(wrp_type_t));
@@ -213,13 +213,13 @@ wrp_err_t wrp_check_meta(wrp_wasm_meta_t *meta)
 wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t block_address,
-    uint32_t *block_idx)
+    uint32_t *out_block_idx)
 {
     wrp_func_t *func = &mdle->funcs[func_idx];
 
     for (uint32_t i = 0; i < func->num_blocks; i++) {
         if (func->block_addrs[i] == block_address) {
-            *block_idx = i;
+            *out_block_idx = i;
             return WRP_SUCCESS;
         }
     }
@@ -230,13 +230,13 @@ wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
 wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     uint32_t func_idx,
     size_t if_address,
-    uint32_t *if_idx)
+    uint32_t *out_if_idx)
 {
     wrp_func_t *func = &mdle->funcs[func_idx];
 
     for (uint32_t i = 0; i < func->num_ifs; i++) {
         if (func->if_addrs[i] == if_address) {
-            *if_idx = i;
+            *out_if_idx = i;
             return WRP_SUCCESS;
         }
     }
@@ -244,20 +244,32 @@ wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     return WRP_ERR_UNKNOWN_IF;
 }
 
-wrp_err_t wrp_get_func_idx(wrp_wasm_mdle_t *mdle,
+wrp_err_t wrp_export_func(wrp_wasm_mdle_t *mdle,
     const char *func_name,
-    uint32_t *func_idx)
+    uint32_t *out_func_idx)
 {
     for (uint32_t i = 0; i < mdle->num_exports; i++) {
         if (mdle->exports[i].kind == EXTERNAL_FUNC) {
-            char *name = mdle->exports[i].name;
-
-            if (strcmp(name, func_name) == 0) {
-                *func_idx = mdle->exports[i].idx;
+            if (strcmp(mdle->exports[i].name, func_name) == 0) {
+                *out_func_idx = mdle->exports[i].idx;
                 return WRP_SUCCESS;
             }
         }
     }
 
     return WRP_ERR_UNKNOWN_FUNC;
+}
+
+wrp_err_t wrp_import_global(wrp_wasm_mdle_t *mdle,
+    uint64_t *global,
+    uint32_t global_idx)
+{
+    for (uint32_t i = 0; i < mdle->num_imports; i++) {
+        if (mdle->imports[i].kind == EXTERNAL_GLOBAL && mdle->imports[i].idx == global_idx) {
+            mdle->globals[global_idx].value = global;
+            return WRP_SUCCESS;
+        }
+    }
+
+    return WRP_ERR_INVALID_GLOBAL_IDX;
 }

@@ -227,10 +227,8 @@ wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx)
         }
     }
 
-    uint32_t num_locals = vm->mdle->funcs[func_idx].num_locals;
-
     //push locals
-    for (uint32_t i = 0; i < num_locals; i++) {
+    for (uint32_t i = 0; i < func->num_locals; i++) {
         WRP_CHECK(wrp_stk_exec_push_op(vm, 0, func->local_types[i]));
     }
 

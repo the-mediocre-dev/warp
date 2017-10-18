@@ -22,4 +22,5 @@ typedef struct wrp_vm wrp_vm_t;
 typedef struct wrp_wasm_mdle wrp_wasm_mdle_t;
 typedef struct wrp_wasm_meta wrp_wasm_meta_t;
 typedef struct wrp_buf wrp_buf_t;
+typedef struct wrp_init_expr wrp_init_expr_t;
 typedef enum wrp_err wrp_err_t;

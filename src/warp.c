@@ -15,7 +15,9 @@
  */
 
 #include <stdalign.h>
+#include <string.h>
 
+#include "warp-encode.h"
 #include "warp-execution.h"
 #include "warp-load.h"
 #include "warp-scan.h"
@@ -90,6 +92,7 @@ wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf)
         return NULL;
     }
 
+    vm->err = WRP_SUCCESS;
     return mdle;
 }
 
@@ -107,25 +110,64 @@ void wrp_destroy_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 wrp_err_t wrp_link_mdle(wrp_vm_t *vm, wrp_wasm_mdle_t *mdle)
 {
     if (vm->mdle) {
-        return false;
+        return WRP_ERR_UNKNOWN;
     }
-
-    // TODO validate imports
 
     vm->mdle = mdle;
 
-    wrp_reset_vm(vm);
+    for (uint32_t i = 0; i < mdle->num_imports; i++) {
+        if (mdle->imports[i].kind == EXTERNAL_GLOBAL && mdle->globals[mdle->imports[i].idx].value == NULL) {
+            vm->mdle = NULL;
+            vm->err = WRP_ERR_MISSING_GLOBAL_IMPORT;
+            return vm->err;
+        }
+    }
 
     // TODO run element init expressions
-    // TODO run data init expressions
+
+    for (uint32_t i = 0; i < mdle->num_memories; i++) {
+        if (mdle->memories[i].num_pages != 0) {
+            memset(mdle->memories[i].bytes, 0, mdle->memories[i].num_pages * PAGE_SIZE);
+        }
+    }
+
+    for (uint32_t i = 0; i < mdle->num_data_segments; i++) {
+        wrp_data_segment_t *segment = &mdle->data_segments[i];
+        uint32_t mem_idx = segment->mem_idx;
+        uint32_t mem_sz = mdle->memories[segment->mem_idx].num_pages * PAGE_SIZE;
+        uint32_t data_sz = segment->sz;
+        uint64_t offset_value = 0;
+
+        if ((vm->err = wrp_exec_init_expr(vm, &segment->offset_expr, &offset_value)) != WRP_SUCCESS) {
+            vm->mdle = NULL;
+            return vm->err;
+        }
+
+        int32_t offset = wrp_decode_i32(offset_value);
+
+        if ((offset < 0 || offset + data_sz > mem_sz)) {
+            vm->mdle = NULL;
+            vm->err = WRP_ERR_INVALID_MEMORY_ACCESS;
+            return vm->err;
+        }
+
+        memcpy(mdle->memories[mem_idx].bytes + offset, segment->data, data_sz);
+    }
 
     return WRP_SUCCESS;
 }
 
 wrp_err_t wrp_unlink_mdle(wrp_vm_t *vm)
 {
-    if (!vm->mdle) {
-        return WRP_ERR_UNKNOWN;
+    if (vm->mdle == NULL) {
+        vm->err = WRP_ERR_UNKNOWN;
+        return vm->err;
+    }
+
+    for (uint32_t i = 0; i < vm->mdle->num_imports; i++) {
+        if (vm->mdle->imports[i].kind == EXTERNAL_GLOBAL){
+            vm->mdle->globals[vm->mdle->imports[i].idx].value = NULL;
+        }
     }
 
     vm->mdle = NULL;
@@ -147,7 +189,7 @@ wrp_err_t wrp_call(wrp_vm_t *vm, uint32_t func_idx)
         return WRP_ERR_INVALID_FUNC_IDX;
     }
 
-    return (vm->err = wrp_exec(vm, func_idx));
+    return (vm->err = wrp_exec_func(vm, func_idx));
 }
 
 void wrp_reset_vm(wrp_vm_t *vm)
