@@ -30,16 +30,9 @@
 #include "warp-types.h"
 #include "warp-wasm.h"
 
-typedef void *(*wrp_alloc_fn)(size_t size, size_t align);
+typedef void *(*wrp_alloc_fn_t)(size_t size, size_t align);
 
-typedef void (*wrp_free_fn)(void *ptr);
-
-typedef void (*wrp_thunk_fn)(uint64_t *args,
-    uint8_t *arg_types,
-    uint32_t num_args,
-    uint64_t *returns,
-    uint8_t *return_types,
-    uint32_t num_returns);
+typedef void (*wrp_free_fn_t)(void *ptr);
 
 typedef struct wrp_oprd {
     uint64_t value;
@@ -64,8 +57,8 @@ typedef struct wrp_call_frame {
 
 typedef struct wrp_vm {
     wrp_wasm_mdle_t *mdle;
-    wrp_alloc_fn alloc_fn;
-    wrp_free_fn free_fn;
+    wrp_alloc_fn_t alloc_fn;
+    wrp_free_fn_t free_fn;
     wrp_oprd_t oprd_stk[WRP_OPERAND_STK_SZ];
     int32_t oprd_stk_head;
     wrp_ctrl_frame_t ctrl_stk[WRP_BLOCK_STK_SZ];
@@ -76,7 +69,7 @@ typedef struct wrp_vm {
     wrp_err_t err;
 } wrp_vm_t;
 
-wrp_vm_t *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn);
+wrp_vm_t *wrp_open_vm(wrp_alloc_fn_t alloc_fn, wrp_free_fn_t free_fn);
 
 wrp_wasm_mdle_t *wrp_instantiate_mdle(wrp_vm_t *vm, wrp_buf_t *buf);
 

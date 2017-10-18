@@ -26,7 +26,7 @@
 #include "warp-wasm.h"
 #include "warp.h"
 
-wrp_vm_t *wrp_open_vm(wrp_alloc_fn alloc_fn, wrp_free_fn free_fn)
+wrp_vm_t *wrp_open_vm(wrp_alloc_fn_t alloc_fn, wrp_free_fn_t free_fn)
 {
     if (!alloc_fn || !free_fn) {
         return NULL;

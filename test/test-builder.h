@@ -338,6 +338,12 @@
     POP_I64(vm, result)                          \
     END_TEST()
 
+#define TEST_OUT_I64(vm, result) \
+    START_TEST(vm)               \
+    CALL(vm)                     \
+    POP_I64(vm, result)          \
+    END_TEST()
+
 #define TEST_IN_I64_OUT_I64(vm, param_1, result) \
     START_TEST(vm)                               \
     PUSH_I64(vm, param_1)                        \

@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include "block-tests.h"
+#include "br-tests.h"
 #include "br_if-tests.h"
 #include "br_table-tests.h"
 #include "call-tests.h"
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
     uint32_t passed = 0;
     uint32_t failed = 0;
     run_block_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_br_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_br_if_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_br_table_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_call_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
