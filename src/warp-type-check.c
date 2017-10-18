@@ -248,21 +248,38 @@ static wrp_err_t check_call(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 
 static wrp_err_t check_call_indirect(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
 {
-    // uint32_t type_idx = 0;
-    // WRP_CHECK(wrp_read_varui32(buf, &type_idx));
+    uint32_t type_idx = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &type_idx));
 
-    // if (type_idx >= meta->num_types) {
-    //     return WRP_ERR_INVALID_TYPE_IDX;
-    // }
+    if (type_idx >= out_mdle->num_types) {
+        return WRP_ERR_INVALID_TYPE_IDX;
+    }
 
-    // int8_t indirect_reserved = 0;
-    // WRP_CHECK(wrp_read_vari7(buf, &indirect_reserved));
+    int8_t indirect_reserved = 0;
+    WRP_CHECK(wrp_read_vari7(&vm->opcode_stream, &indirect_reserved));
 
-    // if (indirect_reserved != 0) {
-    //     return WRP_ERR_INVALID_RESERVED;
-    // }
+    if (indirect_reserved != 0) {
+        return WRP_ERR_INVALID_RESERVED;
+    }
 
-    return WRP_ERR_UNKNOWN;
+    uint32_t num_params = vm->mdle->types[type_idx].num_params;
+
+    //check and pop params in reverse order
+    for (uint32_t i = 0; i < num_params; i++) {
+        int8_t param_type = out_mdle->types[type_idx].param_types[(num_params - i - 1)];
+        int8_t actual_type = 0;
+        WRP_CHECK(wrp_stk_check_pop_op(vm, param_type, &actual_type));
+    }
+
+    uint32_t num_results = vm->mdle->types[type_idx].num_results;
+
+    //TODO handle multiple results
+    if (num_results > 0) {
+        int8_t result_type = out_mdle->types[type_idx].result_types[0];
+        WRP_CHECK(wrp_stk_check_push_op(vm, result_type));
+    }
+
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t check_drop(wrp_vm_t *vm, wrp_wasm_mdle_t *out_mdle)
