@@ -165,7 +165,7 @@ wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
     return WRP_SUCCESS;
 }
 
-wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth)
+wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth, bool branch)
 {
     if (vm->ctrl_stk_head == -1) {
         return WRP_ERR_BLOCK_STK_UNDERFLOW;
@@ -175,10 +175,10 @@ wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth)
         return WRP_ERR_CALL_FRAME_BLOCK_UNDERFLOW;
     }
 
-    //if at the outer most frame block (ie implicit func block), return call.
-    //this has to happen before the stack fiddling below, as the func
-    //block is only implicit and does not yield values
-    if (vm->ctrl_stk_head - ((int32_t)depth + 1) == vm->call_stk[vm->call_stk_head].ctrl_stk_ptr) {
+    vm->ctrl_stk_head -= depth;
+
+    //if at the outer most frame block (ie implicit func block), return call
+    if (vm->ctrl_stk[vm->ctrl_stk_head].type == BLOCK_FUNC) {
         WRP_CHECK(wrp_stk_exec_pop_call(vm));
         return WRP_SUCCESS;
     }
@@ -186,21 +186,27 @@ wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth)
     //TODO handle multiple block return types
     uint64_t value = 0;
     int8_t type = 0;
-    if (vm->ctrl_stk[vm->ctrl_stk_head - depth].signature != VOID) {
+    if (vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
         value = vm->oprd_stk[vm->oprd_stk_head].value;
         type = vm->oprd_stk[vm->oprd_stk_head].type;
     }
 
     //restore operand stack
-    vm->oprd_stk_head = vm->ctrl_stk[vm->ctrl_stk_head - depth].oprd_stk_ptr;
+    vm->oprd_stk_head = vm->ctrl_stk[vm->ctrl_stk_head].oprd_stk_ptr;
 
     //TODO handle multiple block return types
-    if (vm->ctrl_stk[vm->ctrl_stk_head - depth].signature != VOID) {
+    if (vm->ctrl_stk[vm->ctrl_stk_head].signature != VOID) {
         WRP_CHECK(wrp_stk_exec_push_op(vm, value, type));
     }
 
-    vm->opcode_stream.pos = vm->ctrl_stk[vm->ctrl_stk_head - depth].label + 1;
-    vm->ctrl_stk_head -= (depth + 1);
+    if (branch) {
+        vm->opcode_stream.pos = vm->ctrl_stk[vm->ctrl_stk_head].label + 1;
+    }
+
+    if(!branch || vm->ctrl_stk[vm->ctrl_stk_head].type != BLOCK_LOOP){
+        vm->ctrl_stk_head--;
+    }
+
     return WRP_SUCCESS;
 }
 

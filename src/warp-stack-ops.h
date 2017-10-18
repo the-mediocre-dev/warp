@@ -47,7 +47,7 @@ wrp_err_t wrp_stk_exec_push_block(wrp_vm_t *vm,
     uint8_t block_type,
     int8_t signature);
 
-wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth);
+wrp_err_t wrp_stk_exec_pop_block(wrp_vm_t *vm, uint32_t depth, bool branch);
 
 wrp_err_t wrp_stk_exec_push_call(wrp_vm_t *vm, uint32_t func_idx);
 

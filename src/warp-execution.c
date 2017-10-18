@@ -101,13 +101,13 @@ static wrp_err_t exec_if_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_else_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0, true));
     return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_end_op(wrp_vm_t *vm)
 {
-    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, 0, false));
     return WRP_SUCCESS;
 }
 
@@ -115,7 +115,7 @@ static wrp_err_t exec_br_op(wrp_vm_t *vm)
 {
     uint32_t depth = 0;
     WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &depth));
-    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth))
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth, true))
     return WRP_SUCCESS;
 }
 
@@ -128,7 +128,7 @@ static wrp_err_t exec_br_if_op(wrp_vm_t *vm)
     WRP_CHECK(wrp_stk_exec_pop_i32(vm, &condition));
 
     if (condition != 0) {
-        WRP_CHECK(wrp_stk_exec_pop_block(vm, depth));
+        WRP_CHECK(wrp_stk_exec_pop_block(vm, depth, true));
     }
 
     return WRP_SUCCESS;
@@ -162,7 +162,7 @@ static wrp_err_t exec_br_table_op(wrp_vm_t *vm)
         depth = branch_table[target_idx];
     }
 
-    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth));
+    WRP_CHECK(wrp_stk_exec_pop_block(vm, depth, true));
     return WRP_SUCCESS;
 }
 

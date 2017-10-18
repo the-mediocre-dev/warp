@@ -24,8 +24,10 @@
 #include "i32-tests.h"
 #include "i64-tests.h"
 #include "if-tests.h"
+#include "loop-tests.h"
 #include "memory-tests.h"
 #include "nop-tests.h"
+#include "return-tests.h"
 #include "test-common.h"
 
 #define MAX_FILE_PATH 4096
@@ -72,8 +74,10 @@ int main(int argc, char **argv)
     run_i32_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_i64_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_if_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_loop_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_memory_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
     run_nop_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
+    run_return_tests(vm, argv[1], path_buf, MAX_FILE_PATH + 1, &passed, &failed);
 
     test_free(path_buf);
     wrp_close_vm(vm);
