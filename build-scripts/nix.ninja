@@ -16,14 +16,17 @@ rule link
 build $builddir/src/warp-buf.o: $
   compile ./src/warp-buf.c
 
+build $builddir/src/warp-encode.o: $
+  compile ./src/warp-encode.c
+
 build $builddir/src/warp-execution.o: $
   compile ./src/warp-execution.c
 
 build $builddir/src/warp-error.o: $
   compile ./src/warp-error.c
 
-build $builddir/src/warp-initializer-expression.o: $
-  compile ./src/warp-initializer-expression.c
+build $builddir/src/warp-expr.o: $
+  compile ./src/warp-expr.c
 
 build $builddir/src/warp-load.o: $
   compile ./src/warp-load.c
@@ -74,9 +77,10 @@ build $builddir/test/nop-tests.o: $
   compile ./test/nop-tests.c
 
 build $target : link $builddir/src/warp-buf.o $
+                     $builddir/src/warp-encode.o $
                      $builddir/src/warp-execution.o $
                      $builddir/src/warp-error.o $
-                     $builddir/src/warp-initializer-expression.o $
+                     $builddir/src/warp-expr.o $
                      $builddir/src/warp-load.o $
                      $builddir/src/warp-stack-ops.o $
                      $builddir/src/warp-scan.o $
