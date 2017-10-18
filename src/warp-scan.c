@@ -149,12 +149,12 @@ static wrp_err_t scan_table_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
     out_meta->num_tables += count;
 
     for (uint32_t i = 0; i < count; i++) {
-        uint8_t elem_type = 0;
-        WRP_CHECK(wrp_read_varui7(buf, &elem_type));
+        int8_t elem_type = 0;
+        WRP_CHECK(wrp_read_vari7(buf, &elem_type));
 
-        uint32_t min_table_sz = 0;
-        uint32_t max_table_sz = MAX_TABLE_SIZE;
-        WRP_CHECK(wrp_read_limits(buf, &min_table_sz, &max_table_sz));
+        uint32_t min_table_elem = 0;
+        uint32_t max_table_elem = MAX_TABLE_SIZE;
+        WRP_CHECK(wrp_read_limits(buf, &min_table_elem, &max_table_elem));
     }
 
     return WRP_SUCCESS;
@@ -229,6 +229,28 @@ static wrp_err_t scan_start_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
 static wrp_err_t scan_element_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 {
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
+
+    out_meta->num_elem_segments = count;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t table_idx = 0;
+        size_t expr_sz = 0;
+        uint32_t num_elems = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &table_idx));
+        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
+        WRP_CHECK(wrp_read_varui32(buf, &num_elems));
+
+        for(uint32_t j = 0; j < num_elems; j++){
+            uint32_t func_idx = 0;
+            WRP_CHECK(wrp_read_varui32(buf, &func_idx));
+        }
+
+        out_meta->elem_expr_buf_sz += expr_sz;
+        out_meta->num_elem += num_elems;
+    }
+
     return WRP_SUCCESS;
 }
 
@@ -294,13 +316,13 @@ static wrp_err_t scan_data_section(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
 
     for (uint32_t i = 0; i < count; i++) {
         uint32_t mem_idx = 0;
-        size_t init_expr_sz = 0;
+        size_t expr_sz = 0;
         uint32_t data_sz = 0;
         WRP_CHECK(wrp_read_varui32(buf, &mem_idx));
-        WRP_CHECK(wrp_skip_init_expr(buf, &init_expr_sz));
+        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
         WRP_CHECK(wrp_read_varui32(buf, &data_sz));
 
-        out_meta->data_expr_buf_sz += init_expr_sz;
+        out_meta->data_expr_buf_sz += expr_sz;
         out_meta->data_buf_sz += data_sz;
 
         WRP_CHECK(wrp_skip(buf, data_sz));
@@ -360,8 +382,7 @@ wrp_err_t wrp_scan_mdle(wrp_buf_t *buf, wrp_wasm_meta_t *out_meta)
             break;
 
         case SECTION_ELEMENT:
-            //WRP_CHECK(scan_element_section(buf, out_meta));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(scan_element_section(buf, out_meta));
             break;
 
         case SECTION_CODE:

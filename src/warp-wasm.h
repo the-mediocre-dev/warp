@@ -263,6 +263,13 @@
 #define OP_F64_REINTERPRET_I64  0xBF
 #define NUM_OPCODES             0xC0
 
+typedef void (*wrp_thunk_fn_t)(uint64_t *arg_values,
+    uint8_t *arg_types,
+    uint32_t num_args,
+    uint64_t *return_values,
+    uint8_t *return_types,
+    uint32_t num_returns);
+
 typedef struct wrp_wasm_meta {
     uint32_t num_types;
     uint32_t num_type_params;
@@ -276,7 +283,9 @@ typedef struct wrp_wasm_meta {
     uint32_t num_globals;
     uint32_t num_exports;
     size_t export_name_buf_sz;
-    uint32_t num_elements;
+    uint32_t num_elem_segments;
+    uint32_t num_elem;
+    size_t elem_expr_buf_sz;
     uint32_t num_code_locals;
     size_t code_buf_sz;
     uint32_t num_block_ops;
@@ -322,10 +331,18 @@ typedef struct wrp_global {
 } wrp_global_t;
 
 typedef struct wrp_table {
-    uint32_t *elements;
-    uint32_t num_elements;
-    uint32_t max_elements;
+    int8_t type;
+    uint32_t *elem;
+    uint32_t num_elem;
+    uint32_t max_elem;
 } wrp_table_t;
+
+typedef struct wrp_elem_segment{
+    uint32_t *elem;
+    uint32_t num_elem;
+    uint32_t table_idx;
+    wrp_init_expr_t offset_expr;
+} wrp_elem_segment_t;
 
 typedef struct wrp_memory {
     uint8_t *bytes;
@@ -367,6 +384,8 @@ typedef struct wrp_wasm_mdle {
     char *import_name_buf;
     char *import_field_buf;
     char *export_name_buf;
+    uint32_t *elem_buf;
+    uint8_t *elem_expr_buf;
     uint8_t *data_buf;
     uint8_t *data_expr_buf;
     uint32_t start_func_idx;
@@ -379,6 +398,8 @@ typedef struct wrp_wasm_mdle {
     uint32_t num_globals;
     wrp_table_t *tables;
     uint32_t num_tables;
+    wrp_elem_segment_t *elem_segments;
+    uint32_t num_elem_segments;
     wrp_memory_t *memories;
     uint32_t num_memories;
     wrp_data_segment_t *data_segments;
@@ -399,6 +420,8 @@ bool wrp_is_valid_block_signature(int8_t type);
 
 bool wrp_is_valid_value_type(int8_t type);
 
+bool wrp_is_valid_elem_type(int8_t elem_type);
+
 wrp_err_t wrp_check_meta(wrp_wasm_meta_t *meta);
 
 wrp_err_t wrp_get_block_idx(wrp_wasm_mdle_t *mdle,
@@ -412,9 +435,10 @@ wrp_err_t wrp_get_if_idx(wrp_wasm_mdle_t *mdle,
     uint32_t *out_if_idx);
 
 wrp_err_t wrp_export_func(wrp_wasm_mdle_t *mdle,
-        const char *func_name,
-        uint32_t *out_func_idx);
+    const char *func_name,
+    uint32_t *out_func_idx);
 
 wrp_err_t wrp_import_global(wrp_wasm_mdle_t *mdle,
     uint64_t *global,
     uint32_t global_idx);
+

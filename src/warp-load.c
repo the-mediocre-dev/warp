@@ -14,6 +14,7 @@
  *  limitations under the License.
  */
 
+#include <stdalign.h>
 #include <string.h>
 
 #include "warp-buf.h"
@@ -172,8 +173,46 @@ static wrp_err_t load_func_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
     return WRP_SUCCESS;
 }
 
-static wrp_err_t load_table_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
+static wrp_err_t load_table_section(wrp_vm_t *vm,
+    wrp_buf_t *buf,
+    wrp_wasm_mdle_t *out_mdle)
 {
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
+
+    for (uint32_t i = out_mdle->num_tables; i < out_mdle->num_tables + count; i++) {
+        wrp_table_t *table = &out_mdle->tables[i];
+
+        int8_t elem_type = 0;
+        WRP_CHECK(wrp_read_vari7(buf, &elem_type));
+
+        if (!wrp_is_valid_elem_type(elem_type)) {
+            return WRP_ERR_INVALID_ELEMENT_TYPE;
+        }
+
+        uint32_t min_table_elem = 0;
+        uint32_t max_table_elem = MAX_TABLE_SIZE;
+        WRP_CHECK(wrp_read_limits(buf, &min_table_elem, &max_table_elem));
+
+        if (min_table_elem > max_table_elem || max_table_elem > MAX_TABLE_SIZE) {
+            return WRP_ERR_INVALID_TABLE_LIMIT;
+        }
+
+        if (min_table_elem > 0) {
+            table->elem = vm->alloc_fn(min_table_elem * sizeof(uint32_t), alignof(uint32_t));
+
+            if (table->elem == NULL) {
+                return WRP_ERR_MEMORY_ALLOCATION_FAILED;
+            }
+        }
+
+        table->type = elem_type;
+        table->num_elem = min_table_elem;
+        table->max_elem = max_table_elem;
+    }
+
+    out_mdle->num_tables += count;
+
     return WRP_SUCCESS;
 }
 
@@ -191,7 +230,7 @@ static wrp_err_t load_memory_section(wrp_vm_t *vm,
         uint32_t max_pages = MAX_MEMORY_PAGES;
         WRP_CHECK(wrp_read_limits(buf, &min_pages, &max_pages));
 
-        if(min_pages > max_pages || max_pages > MAX_MEMORY_PAGES){
+        if (min_pages > max_pages || max_pages > MAX_MEMORY_PAGES) {
             return WRP_ERR_INVALID_MEM_LIMIT;
         }
 
@@ -284,6 +323,47 @@ static wrp_err_t load_start_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 
 static wrp_err_t load_element_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
+    uint32_t count;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
+
+    out_mdle->num_elem_segments = count;
+    size_t expr_offset = 0;
+    uint32_t elem_offset = 0;
+
+    for (uint32_t i = 0; i < count; i++) {
+        wrp_elem_segment_t *segment = &out_mdle->elem_segments[i];
+        segment->offset_expr.code = &out_mdle->elem_expr_buf[expr_offset];
+        segment->elem = &out_mdle->elem_buf[elem_offset];
+
+        WRP_CHECK(wrp_read_varui32(buf, &segment->table_idx));
+
+        //MVP only allows one table
+        if (segment->table_idx != 0) {
+            return WRP_ERR_INVALID_MEM_IDX;
+        }
+
+        if (segment->table_idx >= out_mdle->num_tables) {
+            return WRP_ERR_INVALID_TABLE_IDX;
+        }
+
+        size_t expr_pos = buf->pos;
+        size_t expr_sz = 0;
+        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
+
+        memcpy(segment->offset_expr.code, &buf->bytes[expr_pos], expr_sz);
+        segment->offset_expr.sz = expr_sz;
+        segment->offset_expr.value_type = I32;
+
+        WRP_CHECK(wrp_read_varui32(buf, &segment->num_elem));
+
+        for(uint32_t j = 0; j < segment->num_elem; j++){
+            WRP_CHECK(wrp_read_varui32(buf, &segment->elem[j]));
+        }
+
+        expr_offset += expr_sz;
+        elem_offset += segment->num_elem;
+    }
+
     return WRP_SUCCESS;
 }
 
@@ -352,23 +432,19 @@ static wrp_err_t load_code_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 
 static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
 {
-    WRP_CHECK(wrp_read_varui32(buf, &out_mdle->num_data_segments));
+    uint32_t count = 0;
+    WRP_CHECK(wrp_read_varui32(buf, &count));
 
+    out_mdle->num_data_segments = count;
     size_t expr_offset = 0;
     size_t data_offset = 0;
-    for (uint32_t i = 0; i < out_mdle->num_data_segments; i++) {
+
+    for (uint32_t i = 0; i < count; i++) {
         wrp_data_segment_t *segment = &out_mdle->data_segments[i];
         segment->offset_expr.code = &out_mdle->data_expr_buf[expr_offset];
         segment->data = &out_mdle->data_buf[data_offset];
 
         WRP_CHECK(wrp_read_varui32(buf, &segment->mem_idx));
-
-        size_t expr_pos = buf->pos;
-        size_t expr_sz = 0;
-        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
-
-        uint32_t data_sz = 0;
-        WRP_CHECK(wrp_read_varui32(buf, &data_sz));
 
         //MVP only allows one memory
         if (segment->mem_idx != 0) {
@@ -379,11 +455,20 @@ static wrp_err_t load_data_section(wrp_buf_t *buf, wrp_wasm_mdle_t *out_mdle)
             return WRP_ERR_INVALID_MEM_IDX;
         }
 
+        size_t expr_pos = buf->pos;
+        size_t expr_sz = 0;
+        WRP_CHECK(wrp_skip_init_expr(buf, &expr_sz));
+
         memcpy(segment->offset_expr.code, &buf->bytes[expr_pos], expr_sz);
-        memcpy(segment->data, &buf->bytes[buf->pos], data_sz);
-        segment->sz = (size_t)data_sz;
         segment->offset_expr.sz = expr_sz;
         segment->offset_expr.value_type = I32;
+
+        uint32_t data_sz = 0;
+        WRP_CHECK(wrp_read_varui32(buf, &data_sz));
+
+        memcpy(segment->data, &buf->bytes[buf->pos], data_sz);
+        segment->sz = (size_t)data_sz;
+
         WRP_CHECK(wrp_skip(buf, data_sz));
 
         expr_offset += expr_sz;
@@ -436,7 +521,7 @@ wrp_err_t wrp_load_mdle(wrp_vm_t *vm,
             break;
 
         case SECTION_TABLE:
-            WRP_CHECK(load_table_section(buf, out_mdle));
+            WRP_CHECK(load_table_section(vm, buf, out_mdle));
             break;
 
         case SECTION_MEMORY:
@@ -456,8 +541,7 @@ wrp_err_t wrp_load_mdle(wrp_vm_t *vm,
             break;
 
         case SECTION_ELEMENT:
-            //WRP_CHECK(load_element_section(buf, out_mdle));
-            WRP_CHECK(wrp_skip(buf, section_sz));
+            WRP_CHECK(load_element_section(buf, out_mdle));
             break;
 
         case SECTION_CODE:
