@@ -54,7 +54,7 @@
         printf("running tests for function \"%s\"\n", func_name);              \
                                                                                \
         uint32_t func_idx = 0;                                                 \
-        if (wrp_get_func_idx(vm->mdle, func_name, &func_idx) != WRP_SUCCESS) { \
+        if (wrp_export_func(vm->mdle, func_name, &func_idx) != WRP_SUCCESS) {  \
             ASSERT(false, "function %s does not exist in module!", func_name); \
         }                                                                      \
                                                                                \
@@ -281,6 +281,19 @@
     CALL(vm)                     \
     END_TEST()
 
+#define TEST_IN_I32_TRAP(vm, param_1, err) \
+    START_TEST(vm)                         \
+    PUSH_I32(vm, param_1)                  \
+    CALL_AND_TRAP(vm, err)                 \
+    END_TEST()
+
+#define TEST_IN_I32_I32(vm, param_1, param_2) \
+    START_TEST(vm)                            \
+    PUSH_I32(vm, param_1)                     \
+    PUSH_I32(vm, param_2)                     \
+    CALL(vm)                                  \
+    END_TEST()
+
 #define TEST_OUT_I32(vm, result) \
     START_TEST(vm)               \
     CALL(vm)                     \
@@ -318,6 +331,13 @@
     CALL_AND_TRAP(vm, err)                              \
     END_TEST()
 
+#define TEST_IN_I32_OUT_I64(vm, param_1, result) \
+    START_TEST(vm)                               \
+    PUSH_I32(vm, param_1)                        \
+    CALL(vm)                                     \
+    POP_I64(vm, result)                          \
+    END_TEST()
+
 #define TEST_IN_I64_OUT_I64(vm, param_1, result) \
     START_TEST(vm)                               \
     PUSH_I64(vm, param_1)                        \
@@ -340,6 +360,13 @@
     POP_I64(vm, result)                                       \
     END_TEST()
 
+#define TEST_IN_I32_I64_TRAP(vm, param_1, param_2, err) \
+    START_TEST(vm)                                      \
+    PUSH_I32(vm, param_1)                               \
+    PUSH_I64(vm, param_2)                               \
+    CALL_AND_TRAP(vm, err)                              \
+    END_TEST()
+
 #define TEST_IN_I64_I64_TRAP(vm, param_1, param_2, err) \
     START_TEST(vm)                                      \
     PUSH_I64(vm, param_1)                               \
@@ -353,6 +380,12 @@
     PUSH_I64(vm, param_2)                                     \
     CALL(vm)                                                  \
     POP_I32(vm, result)                                       \
+    END_TEST()
+
+#define TEST_OUT_F32(vm, result) \
+    START_TEST(vm)               \
+    CALL(vm)                     \
+    POP_F32(vm, result)          \
     END_TEST()
 
 #define TEST_IN_F32_OUT_F32(vm, param_1, result) \
@@ -423,6 +456,19 @@
     POP_F32_CANONICAL_NAN(vm)                                   \
     END_TEST()
 
+#define TEST_IN_I32_F32_TRAP(vm, param_1, param_2, err) \
+    START_TEST(vm)                                      \
+    PUSH_I32(vm, param_1)                               \
+    PUSH_F32(vm, param_2)                               \
+    CALL_AND_TRAP(vm, err)                              \
+    END_TEST()
+
+#define TEST_OUT_F64(vm, result) \
+    START_TEST(vm)               \
+    CALL(vm)                     \
+    POP_F64(vm, result)          \
+    END_TEST()
+
 #define TEST_IN_F64_OUT_F64(vm, param_1, result) \
     START_TEST(vm)                               \
     PUSH_F64(vm, param_1)                        \
@@ -489,4 +535,11 @@
     PUSH_F64(vm, param_2)                                       \
     CALL(vm)                                                    \
     POP_F64_CANONICAL_NAN(vm)                                   \
+    END_TEST()
+
+#define TEST_IN_I32_F64_TRAP(vm, param_1, param_2, err) \
+    START_TEST(vm)                                      \
+    PUSH_I32(vm, param_1)                               \
+    PUSH_F64(vm, param_2)                               \
+    CALL_AND_TRAP(vm, err)                              \
     END_TEST()
