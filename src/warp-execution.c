@@ -295,121 +295,203 @@ static wrp_err_t exec_set_global_op(wrp_vm_t *vm)
     *vm->mdle->globals[global_idx].value = global_value;
     return WRP_SUCCESS;
 }
+
+static wrp_err_t load(wrp_vm_t *vm,
+    int8_t type,
+    size_t natural_alignment,
+    size_t num_bytes,
+    bool sign_extend)
+{
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    //uint32_t alignment = (1U << flags);
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    int32_t address = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &address));
+
+    uint32_t effective_address = (uint32_t)address + offset;
+
+    if (effective_address < (uint32_t)address || effective_address < offset) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    if (effective_address + num_bytes < effective_address) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    if (effective_address + num_bytes > vm->mdle->memories[0].num_pages * PAGE_SIZE) {
+        return WRP_ERR_INVALID_MEMORY_ACCESS;
+    }
+
+    uint64_t value = 0;
+    memcpy(&value, vm->mdle->memories[0].bytes + effective_address, num_bytes);
+
+    if (sign_extend && (value & (1U << ((CHAR_BIT * num_bytes) - 1)))) {
+
+        //TODO optimise this
+        for (uint32_t i = num_bytes; i < sizeof(uint64_t); i++) {
+            ((uint8_t *)(&value))[i] = 0xFFu;
+        }
+    }
+
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, type));
+
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_load_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I32, alignof(int32_t), sizeof(int32_t), false);
 }
 
 static wrp_err_t exec_i64_load_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int64_t), false);
 }
 
 static wrp_err_t exec_f32_load_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, F32, alignof(float), sizeof(float), false);
 }
 
 static wrp_err_t exec_f64_load_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, F64, alignof(double), sizeof(double), false);
 }
 
 static wrp_err_t exec_i32_load_8_s_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I32, alignof(int32_t), sizeof(int8_t), true);
 }
 
 static wrp_err_t exec_i32_load_8_u_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I32, alignof(int32_t), sizeof(int8_t), false);
 }
 
 static wrp_err_t exec_i32_load_16_s_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I32, alignof(int32_t), sizeof(int16_t), true);
 }
 
 static wrp_err_t exec_i32_load_16_u_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I32, alignof(int32_t), sizeof(int16_t), false);
 }
 
 static wrp_err_t exec_i64_load_8_s_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int8_t), true);
 }
 
 static wrp_err_t exec_i64_load_8_u_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int8_t), false);
 }
 
 static wrp_err_t exec_i64_load_16_s_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int16_t), true);
 }
 
 static wrp_err_t exec_i64_load_16_u_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int16_t), false);
 }
 
 static wrp_err_t exec_i64_load_32_s_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int32_t), true);
 }
 
 static wrp_err_t exec_i64_load_32_u_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return load(vm, I64, alignof(int64_t), sizeof(int32_t), false);
+}
+
+static wrp_err_t store(wrp_vm_t *vm, size_t natural_alignment, size_t num_bytes)
+{
+    uint32_t flags = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &flags));
+
+    //uint32_t alignment = (1U << flags);
+
+    uint32_t offset = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &offset));
+
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+
+    int32_t address = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &address));
+
+    uint32_t effective_address = (uint32_t)address + offset;
+
+    if (effective_address < (uint32_t)address || effective_address < offset) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    if (effective_address + num_bytes < effective_address) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    if (effective_address + num_bytes > vm->mdle->memories[0].num_pages * PAGE_SIZE) {
+        return WRP_ERR_INVALID_MEMORY_ACCESS;
+    }
+
+    memcpy(vm->mdle->memories[0].bytes + effective_address, &value, num_bytes);
+
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_store_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int32_t), sizeof(int32_t));
 }
 
 static wrp_err_t exec_i64_store_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int64_t), sizeof(int64_t));
 }
 
 static wrp_err_t exec_f32_store_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(float), sizeof(float));
 }
 
 static wrp_err_t exec_f64_store_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(double), sizeof(double));
 }
 
 static wrp_err_t exec_i32_store_8_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int8_t), sizeof(int8_t));
 }
 
 static wrp_err_t exec_i32_store_16_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int16_t), sizeof(int16_t));
 }
 
 static wrp_err_t exec_i64_store_8_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int8_t), sizeof(int8_t));
 }
 
 static wrp_err_t exec_i64_store_16_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int16_t), sizeof(int16_t));
 }
 
 static wrp_err_t exec_i64_store_32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    return store(vm, alignof(int32_t), sizeof(int32_t));
 }
 
 static wrp_err_t exec_current_memory_op(wrp_vm_t *vm)
