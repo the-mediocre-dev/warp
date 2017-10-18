@@ -265,12 +265,36 @@ static wrp_err_t exec_tee_local_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_get_global_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint32_t global_idx = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &global_idx));
+
+    if (global_idx >= vm->mdle->num_globals) {
+        return WRP_ERR_INVALID_GLOBAL_IDX;
+    }
+
+    uint64_t global_value = *vm->mdle->globals[global_idx].value;
+    uint8_t global_type = vm->mdle->globals[global_idx].type;
+    WRP_CHECK(wrp_stk_exec_push_op(vm, global_value, global_type));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_set_global_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint32_t global_idx = 0;
+    WRP_CHECK(wrp_read_varui32(&vm->opcode_stream, &global_idx));
+
+    if (global_idx >= vm->mdle->num_globals) {
+        return WRP_ERR_INVALID_GLOBAL_IDX;
+    }
+
+    uint64_t global_value = 0;
+    int8_t global_type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &global_value, &global_type));
+
+    //safe to assume types match as code has been type checked
+    *vm->mdle->globals[global_idx].value = global_value;
+    return WRP_SUCCESS;
+}
 }
 
 static wrp_err_t exec_i32_load_op(wrp_vm_t *vm)
