@@ -2132,127 +2132,333 @@ static wrp_err_t exec_f64_copy_sign_op(wrp_vm_t *vm)
 
 static wrp_err_t exec_i32_wrap_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int64_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &value));
+
+    int32_t result = value & 0x00000000ffffffff;
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_trunc_s_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    float value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value < INT32_MIN || value >= INT32_MAX) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    int32_t result = (int32_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_trunc_u_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    float value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value <= -1 || value >= UINT32_MAX) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    uint32_t result = (uint32_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, (int32_t)result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_trunc_s_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value < INT32_MIN || value > INT32_MAX) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    int32_t result = (int32_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_trunc_u_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value <= -1 || value >= UINT32_MAX) {
+        return WRP_ERR_I32_OVERFLOW;
+    }
+
+    uint32_t result = (uint32_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i32(vm, (int32_t)result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_extend_s_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+
+    if (value & (1U << 31)) {
+        value |= 0xffffffff00000000;
+    }
+
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, I64));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_extend_u_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, I64));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_trunc_s_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    float value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value < INT64_MIN || value >= INT64_MAX) {
+        return WRP_ERR_I64_OVERFLOW;
+    }
+
+    int64_t result = (int64_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_trunc_u_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    float value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value <= -1 || value >= UINT64_MAX) {
+        return WRP_ERR_I64_OVERFLOW;
+    }
+
+    uint64_t result = (uint64_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, (int64_t)result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_trunc_s_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value < INT64_MIN || value >= INT64_MAX) {
+        return WRP_ERR_I64_OVERFLOW;
+    }
+
+    int64_t result = (int64_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_trunc_u_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &value));
+
+    if (isnan(value)) {
+        return WRP_ERR_INVALID_INTEGER_CONVERSION;
+    }
+
+    if (value <= -1 || value >= UINT64_MAX) {
+        return WRP_ERR_I64_OVERFLOW;
+    }
+
+    uint64_t result = (uint64_t)value;
+
+    WRP_CHECK(wrp_stk_exec_push_i64(vm, (int64_t)result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f32_convert_s_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &value));
+
+    float result = (float)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f32_convert_u_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &value));
+
+    float result = (float)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f32_convert_s_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int64_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &value));
+
+    float result = (float)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f32_convert_u_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
-}
+    int64_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &value));
 
+    float result = (float)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
+    return WRP_SUCCESS;
+}
 static wrp_err_t exec_f32_demote_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    double value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f64(vm, &value));
+
+    float result = (float)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f32(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_convert_s_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &value));
+
+    double result = (double)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_convert_u_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int32_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i32(vm, &value));
+
+    double result = (double)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_convert_s_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int64_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &value));
+
+    double result = (double)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_convert_u_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    int64_t value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_i64(vm, &value));
+
+    double result = (double)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_promote_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    float value = 0;
+    WRP_CHECK(wrp_stk_exec_pop_f32(vm, &value));
+
+    double result = (double)value;
+
+    WRP_CHECK(wrp_stk_exec_push_f64(vm, result));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i32_reinterpret_f32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, I32));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_i64_reinterpret_f64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, I64));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f32_reinterpret_i32_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, F32));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t exec_f64_reinterpret_i64_op(wrp_vm_t *vm)
 {
-    return WRP_ERR_UNKNOWN;
+    uint64_t value = 0;
+    int8_t type = 0;
+    WRP_CHECK(wrp_stk_exec_pop_op(vm, &value, &type));
+    WRP_CHECK(wrp_stk_exec_push_op(vm, value, F64));
+    return WRP_SUCCESS;
 }
 
 static wrp_err_t (*const exec_jump_table[])(wrp_vm_t *vm) = {
